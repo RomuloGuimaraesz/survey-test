@@ -27,6 +27,11 @@ const ADMIN_USER = {
 
 const app = express();
 
+// When behind a proxy (e.g., Render), trust X-Forwarded-* headers so secure cookies work
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Middleware for raw body (needed for webhooks)
 app.use('/webhooks', express.raw({type: 'application/json'}));
 app.use(express.json());
@@ -40,21 +45,30 @@ if (process.env.FRONTEND_ORIGIN) {
 }
 
 // Session middleware FIRST
+// Secure cookies only if we are on HTTPS (BASE_URL starts with https) or explicitly overridden
+const isHttpsBase = /^https:\/\//i.test(BASE_URL);
+const secureCookies = typeof process.env.SESSION_COOKIE_SECURE !== 'undefined'
+  ? String(process.env.SESSION_COOKIE_SECURE).toLowerCase() === 'true'
+  : isHttpsBase;
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: !!(process.env.NODE_ENV === 'production'),
+    secure: secureCookies,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax'
+    sameSite: 'lax'
   }
 }));
 
 // Authentication middleware function
 function requireAuth(req, res, next) {
   console.log(`[Auth] Checking access to: ${req.path}, authenticated: ${!!req.session?.authenticated}`);
-  
+  // Allow static assets and login endpoints
+  const openPaths = ['/login', '/login.html', '/toast.js', '/styles.css', '/avecta-logo.svg', '/favicon.ico', '/ia-icon.svg', '/total-icon.svg', '/pendente-icon.svg', '/recebido-icon.svg', '/enviado-icon.svg'];
+  if (openPaths.includes(req.path) || req.path.startsWith('/public/')) return next();
+
   if (req.session && req.session.authenticated) {
     return next();
   }
@@ -178,8 +192,22 @@ function updateMessageStatus(messageId, status, provider = null) {
 app.post('/login', (req, res) => {
   const { username, password } = req.body || {};
   if (username === ADMIN_USER.username && password === ADMIN_USER.password) {
-    req.session.authenticated = true;
-    return res.json({ success: true });
+    // Prevent session fixation and ensure cookie is persisted before client redirect
+    return req.session.regenerate((err) => {
+      if (err) {
+        console.error('Session regenerate failed:', err);
+        return res.status(500).json({ error: 'Session error' });
+      }
+      req.session.authenticated = true;
+      req.session.username = username;
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Session save failed:', saveErr);
+          return res.status(500).json({ error: 'Session error' });
+        }
+        return res.json({ success: true });
+      });
+    });
   }
   res.status(401).json({ error: 'Invalid credentials' });
 });
