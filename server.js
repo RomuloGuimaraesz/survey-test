@@ -235,7 +235,8 @@ app.post('/api/admin/reset-data', (req, res) => {
   if (!req.session?.authenticated) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  if (process.env.DEMO_RESET_ENABLED !== 'true') {
+  const resetEnabled = String(process.env.DEMO_RESET_ENABLED ?? 'true').toLowerCase() === 'true';
+  if (!resetEnabled) {
     return res.status(403).json({ error: 'Reset disabled. Set DEMO_RESET_ENABLED=true to allow.' });
   }
   try {
