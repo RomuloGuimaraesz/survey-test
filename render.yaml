@@ -1,0 +1,24 @@
+# Render Infrastructure as Code for quick deploy
+# Docs: https://render.com/docs/infrastructure-as-code
+
+services:
+  - type: web
+    name: municipal-assistant
+    env: node
+    rootDir: .
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      # Non-secret defaults safe for a demo; set secrets in Render dashboard
+      - key: NODE_ENV
+        value: production
+      - key: WHATSAPP_MODE
+        value: mock
+      - key: WHATSAPP_PROVIDER
+        value: meta
+      - key: DB_FILE
+        value: data.json
+      # Add SESSION_SECRET, ADMIN_USER, ADMIN_PASS, BASE_URL, GROQ_API_KEY, etc in the Render UI

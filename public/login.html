@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Login - Sistema</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Sans:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+        <style>
+            /* Small inline spinner shown only during redirect */
+            .btn-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: btnspin 1s linear infinite; margin-left: 8px; vertical-align: middle; }
+            @keyframes btnspin { to { transform: rotate(360deg); } }
+        </style>
+</head>
+<body class="form-page">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="avecta-logo">
+        <img src="./avecta-logo.svg" alt="" />
+    </div>
+
+    <div class="container">
+        <header>
+            <h2>Acesso Administrativo</h2>
+            <p class="small">Informe suas credenciais para entrar</p>
+        </header>
+
+            <form id="loginForm" autocomplete="off">
+            <input type="text" id="username" name="username" placeholder="Usuário" required autocomplete="username">
+            <input type="password" id="password" name="password" placeholder="Senha" required autocomplete="current-password">
+                <button type="submit" id="loginButton"><span id="btnText">Entrar</span><span id="btnSpinner" class="btn-spinner" style="display:none"></span></button>
+        </form>
+    </div>
+
+    <script src="./toast.js"></script>
+    <script>
+        // Initialize Toasts
+        const toastManager = new ToastManager();
+
+        const form = document.getElementById('loginForm');
+        const button = document.getElementById('loginButton');
+
+        // Auto-focus
+        window.addEventListener('load', () => {
+            document.getElementById('username').focus();
+            setTimeout(() => {
+                toastManager.info('Digite seu usuário e senha para continuar.', {
+                    title: 'Bem-vindo!',
+                    duration: 8000
+                });
+            }, 600);
+        });
+
+        // Validation toasts (like index.html)
+        form.addEventListener('invalid', (e) => {
+            e.preventDefault();
+            const field = e.target;
+            const fieldName = field.placeholder || field.name;
+            if (field.validity.valueMissing) {
+                toastManager.warning(`Por favor, preencha o campo "${fieldName}"`, { title: 'Campo Obrigatório' });
+            }
+            field.focus();
+        }, true);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                toastManager.warning('Por favor, preencha todos os campos.', { title: 'Validação' });
+                return;
+            }
+
+            // Button and loading toast
+            button.disabled = true;
+            const loadingToast = toastManager.info('Validando credenciais...', {
+                title: 'Processando',
+                progress: true,
+                duration: 10000
+            });
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await res.json();
+
+                toastManager.remove(loadingToast);
+
+                                if (result.success) {
+                            toastManager.success('Login realizado com sucesso! Redirecionando...', { title: 'Autenticado' });
+                            // Show spinner and update button text while waiting to redirect
+                            document.getElementById('btnText').textContent = 'Redirecionando...';
+                            document.getElementById('btnSpinner').style.display = 'inline-block';
+                                    setTimeout(() => { window.location.href = '/admin.html'; }, 3500);
+                } else {
+                    toastManager.error(result.error || 'Usuário ou senha inválidos. Tente novamente.', { title: 'Falha no Login' });
+                    button.disabled = false;
+                }
+            } catch (err) {
+                console.error('[Login] Error', err);
+                toastManager.remove(loadingToast);
+                toastManager.error('Erro de conexão com o servidor. Tente novamente.', { title: 'Erro' });
+                button.disabled = false;
+            }
+        });
+
+        // Enter submits
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') form.dispatchEvent(new Event('submit'));
+        });
+    </script>
+</body>
+</html>

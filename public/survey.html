@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pesquisa - Obrigado pela participaÃ§Ã£o</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Sans:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="form-page">
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+  
+  <div class="avecta-logo">
+    <img src="./avecta-logo.svg" alt="" srcset="">
+  </div>
+
+  <div class="container">
+    <h2>Pesquisa Informativa</h2>
+    <p class="small">Sua opinião é muito importante para nós!</p>
+
+    <div id="formWrap">
+      <form id="surveyForm">
+        <div>
+          <label>Qual o maior problema no seu bairro?</label>
+          <select name="issue" required>
+            <option value="">Selecione uma opção...</option>
+            <option value="Educação">Educação</option>
+            <option value="Emprego">Emprego</option>
+            <option value="Saúde">Saúde</option>
+            <option value="Segurança">Segurança</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Outros">Outros</option>
+          </select>
+          <label for="otherIssue" style="display: none; margin-top: 16px;">
+            Descreva o problema:
+            <input id="otherIssue" name="otherIssue" placeholder="Descreva de forma breve qual é o problema">
+          </label>
+        </div>
+
+        <div>
+          <label>Está satisfeito com os serviços prestados pela cidade?</label>
+          <select name="satisfaction" required>
+            <option value="">Selecione uma opção...</option>
+            <option value="Muito satisfeito">Muito satisfeito</option>
+            <option value="Satisfeito">Satisfeito</option>
+            <option value="Neutro">Neutro</option>
+            <option value="Insatisfeito">Insatisfeito</option>
+            <option value="Muito insatisfeito">Muito insatisfeito</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Gostaria de participar de futuros eventos?</label>
+          <select name="participate" required>
+            <option value="">Selecione uma opção...</option>
+            <option value="Sim">Sim</option>
+            <option value="Não">Não</option>
+          </select>
+        </div>
+
+        <button type="submit">Enviar Resposta</button>
+      </form>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+<script src="./toast.js"></script>
+<script>
+  // Initialize shared ToastManager
+  const toastManager = new ToastManager();
+  // Main survey logic (ORIGINAL FUNCTIONALITY PRESERVED)
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get("id");
+
+  if (!id) {
+    document.getElementById("formWrap").innerHTML = '<div class="invalid-link"><strong>Link inválido!</strong><br>Parâmetro ID não encontrado na URL.</div>';
+    toastManager.error("Link de pesquisa inválido. Verifique se o link está correto.", {
+      title: "Erro no Link"
+    });
+  } else {
+    // Show welcome message
+      // Show welcome message after page load (match index.html timing)
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          toastManager.info("Bem-vindo! Sua participação é muito importante para nossa comunidade.", {
+            title: "Obrigado por Participar"
+          });
+        }, 750);
+      });
+
+    // registrar que o usuário abriu o link (track click)
+    fetch(`/api/contacts/${id}/click`, { method: "POST" }).catch(()=>{});
+
+    const form = document.getElementById("surveyForm");
+    const container = document.querySelector(".container");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      // Clear previous result
+      document.getElementById("result").textContent = "";
+      document.getElementById("result").className = "";
+      container.classList.add("loading");
+
+      // Show loading toast
+      const loadingToast = toastManager.info("Enviando sua resposta...", { 
+        progress: false, 
+        duration: 0,
+        title: "Processando"
+      });
+
+      const data = {
+        id: Number(id),
+        issue: form.issue.value,
+        otherIssue: form.otherIssue.value,
+        satisfaction: form.satisfaction.value,
+        participate: form.participate.value
+      };
+
+      try {
+        const res = await fetch("/api/survey", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const body = await res.json();
+        if (!res.ok) throw body;
+
+        // Remove loading toast
+        toastManager.remove(loadingToast);
+
+        // Show success message
+        toastManager.success("Sua resposta foi registrada com sucesso! Obrigado pela participação!", {
+          title: "Pesquisa Concluída"
+        });
+
+        document.getElementById("result").innerHTML = "Obrigado! Sua resposta foi registrada.";
+        document.getElementById("result").className = "success";
+        form.remove();
+
+      } catch (err) {
+        console.error(err);
+        
+        // Remove loading toast
+        toastManager.remove(loadingToast);
+        
+        // Show error toast
+        toastManager.error(err.error || "Erro inesperado ao enviar resposta", {
+          title: "Erro no Envio"
+        });
+        
+        document.getElementById("result").innerText = "Erro no envio: " + (err.error || JSON.stringify(err));
+        document.getElementById("result").className = "error";
+      } finally {
+        container.classList.remove("loading");
+      }
+    });
+
+    // Form validation with toasts
+    form.addEventListener('invalid', (e) => {
+      e.preventDefault();
+      const field = e.target;
+      
+      if (field.validity.valueMissing) {
+        if (field.name === 'issue') {
+          toastManager.warning("Por favor, selecione qual o maior problema no seu bairro", {
+            title: "Campo Obrigatório"
+          });
+        } else if (field.name === 'satisfaction') {
+          toastManager.warning("Por favor, avalie sua satisfação com os serviços da cidade", {
+            title: "Campo Obrigatório"
+          });
+        } else if (field.name === 'participate') {
+          toastManager.warning("Por favor, informe se gostaria de participar de encontros comunitários", {
+            title: "Campo Obrigatório"
+          });
+        }
+      }
+      
+      field.focus();
+    }, true);
+
+    // Show conditional field helper
+    const issueSelect = form.issue;
+    const otherIssueLabel = document.querySelector('label[for="otherIssue"]');
+    
+    issueSelect.addEventListener('change', function() {
+      if (this.value === 'Outros') {
+        otherIssueLabel.style.display = 'block';
+        toastManager.info("Descreva brevemente qual é o problema no campo abaixo", {
+          title: "Campo Adicional",
+          duration: 3000
+        });
+      } else {
+        otherIssueLabel.style.display = 'none';
+      }
+    });
+
+    // Initially hide the other issue field if not needed
+    if (issueSelect.value !== 'Outros') {
+      otherIssueLabel.style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>

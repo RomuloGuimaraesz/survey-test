@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Relatório Executivo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f6f7fb; color:#1f2937; }
+    header { position: sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:linear-gradient(135deg, #ce00c2ff 0%, #5200e7ff 100%); color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    header .title { font-weight:700; letter-spacing:0.2px; }
+    header .actions { display:flex; gap:8px; }
+    button, a.button { background:#fff; color:#5200e7; border:none; border-radius:8px; padding:8px 12px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+    button:hover, a.button:hover { background:#f3f2ff; }
+    main { max-width: 980px; margin: 24px auto; padding: 0 16px 32px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    .muted { color:#6b7280; font-size:14px; }
+    .summary { font-size:15px; line-height:1.6; white-space:pre-wrap; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    .metric { border:1px solid #eef2f7; border-radius:10px; padding:12px; background:#fafbff; }
+    .metric .label { font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px; }
+    .metric .value { font-size:20px; font-weight:700; margin-top:4px; }
+    h2 { margin: 8px 0 6px; font-size:18px; }
+    ul { margin:8px 0 0 18px; }
+    .empty { color:#6b7280; font-style:italic; }
+    .error { color:#b91c1c; background:#fef2f2; border:1px solid #fee2e2; padding:12px; border-radius:8px; }
+  </style>
+  <script>
+  async function fetchReport(query) {
+      const res = await fetch('/api/admin/agent-ui', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status}: ${txt}`);
+      }
+      return await res.json();
+    }
+
+    async function fetchContacts() {
+      const res = await fetch('/api/contacts?legacy=true');
+      if (!res.ok) throw new Error(`HTTP ${res.status} on /api/contacts`);
+      return await res.json();
+    }
+
+    function computeMetricsFromContacts(contacts) {
+      const total = contacts.length;
+      const sent = contacts.filter(c => !!c.whatsappSentAt).length;
+      const delivered = contacts.filter(c => c.whatsappStatus === 'delivered').length;
+      const failed = contacts.filter(c => c.whatsappStatus === 'failed').length;
+      const answered = contacts.filter(c => !!c.survey).length;
+      const clicked = contacts.filter(c => !!c.clickedAt).length;
+      const responseRate = total > 0 ? Math.round((answered / total) * 100) : 0;
+      const engagementRate = total > 0 ? Math.round((clicked / total) * 100) : 0;
+      return { total, sent, delivered, failed, answered, clicked, responseRate, engagementRate };
+    }
+
+    async function ensureMetrics(result) {
+      // If metrics missing or incomplete, derive from contacts as fallback
+      const needed = ['total','sent','delivered','failed','answered','clicked'];
+      const hasMetrics = !!result?.report?.metrics;
+      const metrics = hasMetrics ? result.report.metrics : {};
+      const missing = needed.some(k => metrics[k] === undefined || metrics[k] === null);
+      if (!missing) return result;
+
+      try {
+        const contacts = await fetchContacts();
+        const derived = computeMetricsFromContacts(contacts);
+        result.report = result.report || {};
+        result.report.metrics = { ...derived, ...(result.report.metrics || {}) };
+      } catch (e) {
+        // Leave as-is if contacts fetch fails
+        console.warn('[report] Failed to backfill metrics from contacts:', e.message);
+      }
+      return result;
+    }
+
+    function fmtPercent(n) { return (typeof n === 'number') ? `${n}%` : (n || '—'); }
+
+    function render(result) {
+      const container = document.getElementById('content');
+      container.innerHTML = '';
+
+      const meta = document.createElement('div');
+      meta.className = 'muted';
+      meta.textContent = `${(result.intent || 'AI')} • ${new Date(result.timestamp || Date.now()).toLocaleString()}${result.confidence ? ' • Confiança: ' + Math.round(result.confidence*100) + '%' : ''}`;
+
+      const summaryCard = document.createElement('div');
+      summaryCard.className = 'card';
+      const h1 = document.createElement('h1'); h1.textContent = 'Relatório Executivo'; h1.style.margin = '4px 0 8px';
+      const summary = document.createElement('div');
+      summary.className = 'summary';
+      const baseText = (result.report?.text) || result.response || 'Relatório gerado.';
+      let summaryText = baseText;
+      if (Array.isArray(result.residents) && result.residents.length && !/RESIDENTES/i.test(baseText)) {
+        const list = result.residents.map((r, idx) => `${idx + 1}. ${r.name} (${r.neighborhood || '—'})${r.satisfaction ? ` • ${r.satisfaction}` : ''}`).join('\n');
+        summaryText += `\n\nRESIDENTES (${result.residents.length}):\n${list}`;
+      }
+      summary.textContent = summaryText.replace(/\n/g, '\n');
+      summaryCard.appendChild(h1);
+      summaryCard.appendChild(meta);
+      summaryCard.appendChild(summary);
+      container.appendChild(summaryCard);
+
+      if (result.report?.metrics) {
+        const m = result.report.metrics;
+        const metricsCard = document.createElement('div');
+        metricsCard.className = 'card';
+        const t = document.createElement('h2'); t.textContent = 'Métricas'; metricsCard.appendChild(t);
+        const grid = document.createElement('div'); grid.className = 'grid';
+        const add = (label, value) => {
+          const wrap = document.createElement('div'); wrap.className = 'metric';
+          const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
+          const v = document.createElement('div'); v.className = 'value'; v.textContent = value ?? '—';
+          wrap.appendChild(l); wrap.appendChild(v); grid.appendChild(wrap);
+        };
+        add('Total', m.total);
+        add('Enviadas', m.sent);
+        add('Entregues', m.delivered);
+        add('Falhas', m.failed);
+        add('Respondidas', `${m.answered}${m.responseRate !== undefined ? ` (${m.responseRate}%)` : ''}`);
+        add('Cliques', `${m.clicked}${m.engagementRate !== undefined ? ` (${m.engagementRate}%)` : ''}`);
+        metricsCard.appendChild(grid);
+        container.appendChild(metricsCard);
+      }
+
+      // Prepare Insights and Recommendations with de-duplication and intent separation
+      const toText = (x) => (typeof x === 'string') ? x : (x && x.content) ? x.content : '';
+      const norm = (s) => s.toString().trim().toLowerCase();
+      const unique = (arr) => {
+        const seen = new Set();
+        const out = [];
+        arr.forEach(item => { const key = norm(item); if (key && !seen.has(key)) { seen.add(key); out.push(item); } });
+        return out;
+      };
+
+      let insightsArr = Array.isArray(result.insights) ? result.insights.map(toText).filter(Boolean) : [];
+      let recsArr = Array.isArray(result.recommendations) ? result.recommendations.map(toText).filter(Boolean) : [];
+
+      insightsArr = unique(insightsArr);
+      recsArr = unique(recsArr);
+
+      const sameSets = insightsArr.length && recsArr.length &&
+        insightsArr.length === recsArr.length && insightsArr.every(i => recsArr.some(r => norm(r) === norm(i)));
+
+      if (sameSets) {
+        // If identical, try to use Whatsapp templates as actionable recommendations
+        const templates = Array.isArray(result.report?.whatsappTemplates) ? result.report.whatsappTemplates : [];
+        if (templates.length) {
+          recsArr = unique(templates.map(toText).filter(Boolean));
+        } else {
+          // Otherwise, drop overlapping items from recommendations to keep lists distinct
+          const insSet = new Set(insightsArr.map(norm));
+          recsArr = recsArr.filter(r => !insSet.has(norm(r)));
+        }
+      }
+
+      if (insightsArr.length) {
+        const card = document.createElement('div'); card.className = 'card';
+        const t = document.createElement('h2'); t.textContent = 'Insights'; card.appendChild(t);
+        const ul = document.createElement('ul');
+        insightsArr.forEach(i => { const li = document.createElement('li'); li.textContent = i; ul.appendChild(li); });
+        card.appendChild(ul); container.appendChild(card);
+      }
+
+      if (recsArr.length) {
+        const card = document.createElement('div'); card.className = 'card';
+        const t = document.createElement('h2'); t.textContent = 'Recomendações'; card.appendChild(t);
+        const ul = document.createElement('ul');
+        recsArr.forEach(r => { const li = document.createElement('li'); li.textContent = r; ul.appendChild(li); });
+        card.appendChild(ul); container.appendChild(card);
+      }
+
+      if (Array.isArray(result.residents) && result.residents.length) {
+        const card = document.createElement('div'); card.className = 'card';
+        const t = document.createElement('h2'); t.textContent = `Residentes relacionados (${result.residents.length})`; card.appendChild(t);
+        const ul = document.createElement('ul');
+        // Show full list (no truncation)
+        result.residents.forEach(r => {
+          const li = document.createElement('li');
+          li.textContent = `${r.name} — ${r.neighborhood || '—'}${r.satisfaction ? ` • ${r.satisfaction}` : ''}`;
+          ul.appendChild(li);
+        });
+        card.appendChild(ul);
+        container.appendChild(card);
+      }
+    }
+
+    async function init() {
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q');
+      const rid = params.get('rid');
+      const queryEl = document.getElementById('queryText');
+      const statusEl = document.getElementById('status');
+      const content = document.getElementById('content');
+
+      if (!q && !rid) {
+        statusEl.innerHTML = '<div class="card"><div class="muted">Nenhuma consulta fornecida. Volte ao painel e gere um relatório a partir do chat.</div></div>';
+        return;
+      }
+
+      if (q) {
+        queryEl.textContent = `Consulta: "${q}"`;
+      }
+      statusEl.innerHTML = '<div class="card"><div class="muted">Carregando relatório...</div></div>';
+
+      let result = null;
+      if (rid) {
+        try {
+          const stored = localStorage.getItem(`reportPayload:${rid}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            result = parsed.result || null;
+          }
+        } catch (e) {
+          console.warn('[report] Falha ao ler payload salvo:', e.message);
+        }
+      }
+
+      try {
+        // Fallback to fresh generation if nothing cached or missing main fields
+        const needsFetch = !result || (!result.response && !result.report?.text);
+        if (needsFetch && q) {
+          result = await fetchReport(q);
+        }
+
+        result = await ensureMetrics(result || {});
+
+        if (!result || result.success === false) {
+          statusEl.innerHTML = `<div class="card error">Falha ao gerar relatório: ${(result && (result.response || result.error?.message)) || 'erro desconhecido'}<br><a href="/login.html" class="button" style="margin-top:8px;">Fazer login</a></div>`;
+          return;
+        }
+        statusEl.innerHTML = '';
+        render(result);
+      } catch (err) {
+        const is401 = /HTTP\s+401/.test(err.message);
+        statusEl.innerHTML = `<div class="card error">${is401 ? 'Não autenticado. Faça login para visualizar o relatório.' : 'Erro ao gerar relatório.'}<br><span class="muted">${err.message}</span><br><a href="/login.html" class="button" style="margin-top:8px;">Fazer login</a></div>`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</head>
+<body>
+  <header>
+    <div class="title">Relatório Executivo</div>
+    <div class="actions">
+      <button onclick="window.print()">Imprimir / Salvar PDF</button>
+    </div>
+  </header>
+  <main>
+    <div id="queryText" class="muted" style="margin-bottom:8px;"></div>
+    <div id="status"></div>
+    <div id="content"></div>
+  </main>
+</body>
+</html>

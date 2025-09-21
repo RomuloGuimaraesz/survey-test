@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cadastro de Munícipe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Sans:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="form-page">
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+
+  <div class="avecta-logo">
+    <img src="./avecta-logo.svg" alt="" srcset="">
+  </div>
+
+  <div class="container">
+    <header>
+      <h2>Cadastro de Munícipe</h2>
+      <p class="small">Preencha todos os campos abaixo</p>
+    </header>
+
+    <form id="contactForm" autocomplete="off">
+      <input name="name" placeholder="Nome completo" required>
+      <input name="age" type="number" placeholder="Idade" required min="1" max="120">
+      <input name="neighborhood" placeholder="Bairro" required>
+      <input name="whatsapp" placeholder="WhatsApp" required pattern="[0-9]+">
+      <button type="submit">Salvar</button>
+    </form>
+  </div>
+
+<script src="./toast.js"></script>
+<script>
+  // Initialize shared ToastManager
+  const toastManager = new ToastManager();
+
+  // Main form logic
+  const form = document.getElementById("contactForm");
+  const container = document.querySelector(".container");
+  let lastCreated = null;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+  // Clear previous state
+    container.classList.add("loading");
+
+    // Show loading toast
+    const loadingToast = toastManager.info("Salvando dados do munícipe...", { 
+      progress: true, 
+      duration: 10000,
+      title: "Processando"
+    });
+
+    const payload = {
+      name: form.name.value.trim(),
+      age: form.age.value,
+      neighborhood: form.neighborhood.value.trim(),
+      whatsapp: form.whatsapp.value.trim()
+    };
+
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const body = await res.json();
+      if (!res.ok) throw body;
+
+      // Remove loading toast
+      toastManager.remove(loadingToast);
+
+      lastCreated = body;
+      
+      // Show success message
+      toastManager.success(`Munícipe ${body.name} cadastrado com sucesso!`, {
+        title: "Cadastro Realizado"
+      });
+
+  // Admin enviará o link via WhatsApp na página administrativa.
+
+      form.reset();
+      
+    } catch (err) {
+      console.error(err);
+      
+      // Remove loading toast
+      toastManager.remove(loadingToast);
+      
+      // Show error toast
+      toastManager.error(err.error || "Erro inesperado ao salvar dados", {
+        title: "Erro no Cadastro"
+      });
+
+    } finally {
+      container.classList.remove("loading");
+    }
+  });
+
+  // Validation toasts
+  form.addEventListener('invalid', (e) => {
+    e.preventDefault();
+    const field = e.target;
+    const fieldName = field.placeholder || field.name;
+    
+    if (field.validity.valueMissing) {
+      toastManager.warning(`Por favor, preencha o campo "${fieldName}"`, {
+        title: "Campo Obrigatório"
+      });
+    } else if (field.validity.patternMismatch && field.name === 'whatsapp') {
+      toastManager.warning("WhatsApp deve conter apenas números (ex: 5511999999999)", {
+        title: "Formato Inválido"
+      });
+    } else if (field.validity.rangeUnderflow) {
+      toastManager.warning("Idade deve ser maior que 0", {
+        title: "Valor Inválido"
+      });
+    } else if (field.validity.rangeOverflow) {
+      toastManager.warning("Idade deve ser menor que 110", {
+        title: "Valor Inválido"
+      });
+    }
+    
+    field.focus();
+  }, true);
+
+  // Welcome message
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      toastManager.info("Informe os dados para cadastro de Munícipe", {
+        title: "Bem-vindo!",
+        duration: 10000
+      });
+    }, 750);
+  });
+
+  // função auxiliar para sinalizar admin que houve alteração
+  function loadAdminRefresh() {
+    // intentionally empty – placeholder for integration cross-tab
+  }
+</script>
+</body>
+</html>
