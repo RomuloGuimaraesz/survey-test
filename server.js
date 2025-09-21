@@ -102,9 +102,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Public runtime config (expose BASE_URL to clients)
 app.get('/api/config', (req, res) => {
+  const demoResetEnabled = String(process.env.DEMO_RESET_ENABLED ?? 'true').toLowerCase() === 'true';
   res.json({ 
     baseUrl: getBaseUrl(req),
-    demoResetEnabled: process.env.DEMO_RESET_ENABLED === 'true'
+    demoResetEnabled
   });
 });
 

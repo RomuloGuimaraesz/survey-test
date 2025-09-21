@@ -815,6 +815,7 @@
       <div class="table-header">
         <div class="table-title">Contatos</div>
         <div class="column-navigation">
+          <button id="reset-demo-inline" style="display:none; background:#fff;color:#5200e7;border:1px solid #e1e5e9;border-radius:8px;padding:6px 10px;font-weight:600;cursor:pointer;margin-right:8px">Reset Demo Data</button>
           <button class="nav-button" id="prevColumn" onclick="switchColumn(-1)">‹</button>
           <div class="column-indicator" id="columnIndicator">Nome • Idade</div>
           <button class="nav-button" id="nextColumn" onclick="switchColumn(1)">›</button>
@@ -1871,6 +1872,15 @@ function updateTableView() {
         if (cfg && cfg.baseUrl) window.APP_BASE_URL = cfg.baseUrl; 
         // Inject tiny reset button if demo reset is enabled
         if (cfg && cfg.demoResetEnabled) {
+          // Show inline header button too (fallback)
+          const inlineBtn = document.getElementById('reset-demo-inline');
+          if (inlineBtn) {
+            inlineBtn.style.display = 'inline-block';
+            inlineBtn.addEventListener('click', () => {
+              const floating = document.getElementById('reset-demo-btn');
+              if (floating) floating.click();
+            });
+          }
           const btn = document.createElement('button');
           btn.id = 'reset-demo-btn';
           btn.textContent = 'Reset Demo Data';
