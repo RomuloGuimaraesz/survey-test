@@ -1735,26 +1735,5 @@
     "whatsappStatusUpdatedAt": "2025-09-21T04:35:15.703Z",
     "clickedAt": null,
     "survey": null
-  },
-  {
-    "id": 1758449964284,
-    "name": "Rômulo de Farias Guimarães",
-    "age": 34,
-    "neighborhood": "Vila Maria Leonor - Centro",
-    "whatsapp": "5511992368100",
-    "createdAt": "2025-09-21T10:19:24.285Z",
-    "whatsappSentAt": null,
-    "whatsappMessageId": null,
-    "whatsappProvider": null,
-    "whatsappStatus": null,
-    "whatsappStatusUpdatedAt": null,
-    "clickedAt": "2025-09-21T10:21:09.957Z",
-    "survey": {
-      "issue": "O serviço prestado pela Enel se resume em péssima qualidade",
-      "otherIssue": "O serviço prestado pela Enel se resume em péssima qualidade",
-      "satisfaction": "Insatisfeito",
-      "participate": "Não",
-      "answeredAt": "2025-09-21T10:21:59.165Z"
-    }
   }
 ]
