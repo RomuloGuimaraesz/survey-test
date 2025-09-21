@@ -45,11 +45,10 @@ if (process.env.FRONTEND_ORIGIN) {
 }
 
 // Session middleware FIRST
-// Secure cookies only if we are on HTTPS (BASE_URL starts with https) or explicitly overridden
-const isHttpsBase = /^https:\/\//i.test(BASE_URL);
+// In production behind a proxy (Render), set secure cookies; express-session will honor req.secure when trust proxy is enabled
 const secureCookies = typeof process.env.SESSION_COOKIE_SECURE !== 'undefined'
   ? String(process.env.SESSION_COOKIE_SECURE).toLowerCase() === 'true'
-  : isHttpsBase;
+  : (process.env.NODE_ENV === 'production');
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',
@@ -199,6 +198,7 @@ function updateMessageStatus(messageId, status, provider = null) {
 // --- Login Route ---
 app.post('/login', (req, res) => {
   const { username, password } = req.body || {};
+  console.log('[Auth] Login attempt for user:', username);
   if (username === ADMIN_USER.username && password === ADMIN_USER.password) {
     // Prevent session fixation and ensure cookie is persisted before client redirect
     return req.session.regenerate((err) => {
@@ -213,10 +213,12 @@ app.post('/login', (req, res) => {
           console.error('Session save failed:', saveErr);
           return res.status(500).json({ error: 'Session error' });
         }
+    console.log('[Auth] Login success; session id:', req.sessionID);
         return res.json({ success: true });
       });
     });
   }
+  console.warn('[Auth] Login failed for user:', username);
   res.status(401).json({ error: 'Invalid credentials' });
 });
 
