@@ -1896,7 +1896,7 @@ function updateTableView() {
               duration: 10000
             });
             try {
-              const res = await fetch('/api/admin/reset-data', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+              const res = await fetch('/api/admin/reset-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
               const body = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(body.error || 'Reset failed');
             } catch (e) {
