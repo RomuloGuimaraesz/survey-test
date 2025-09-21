@@ -62,6 +62,14 @@ app.use(session({
   }
 }));
 
+// Helper: resolve the effective base URL per request (honors proxy/https when BASE_URL not set)
+function getBaseUrl(req) {
+  if (process.env.BASE_URL) return process.env.BASE_URL;
+  const protocol = req.protocol; // with trust proxy, reflects 'https' on Render
+  const host = req.get('host');
+  return `${protocol}://${host}`;
+}
+
 // Authentication middleware function
 function requireAuth(req, res, next) {
   console.log(`[Auth] Checking access to: ${req.path}, authenticated: ${!!req.session?.authenticated}`);
@@ -96,7 +104,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // Public runtime config (expose BASE_URL to clients)
 app.get('/api/config', (req, res) => {
   res.json({ 
-    baseUrl: BASE_URL,
+    baseUrl: getBaseUrl(req),
     demoResetEnabled: process.env.DEMO_RESET_ENABLED === 'true'
   });
 });
@@ -496,7 +504,7 @@ app.post("/api/contacts", (req, res) => {
   data.push(entry);
   writeDB(data);
 
-  const surveyLink = `${BASE_URL}/survey.html?id=${id}`;
+  const surveyLink = `${getBaseUrl(req)}/survey.html?id=${id}`;
 
   return res.json({
     ...entry,
@@ -573,7 +581,7 @@ app.post("/api/contacts/:id/whatsapp", async (req, res) => {
     }
   }
 
-  const surveyLink = `${BASE_URL}/survey.html?id=${user.id}`;
+  const surveyLink = `${getBaseUrl(req)}/survey.html?id=${user.id}`;
   const message = `Olá ${user.name}! 🎉
 
 Obrigado por participar do Bingo do Bem!
@@ -961,7 +969,7 @@ app.post("/api/bulk-send", async (req, res) => {
     
     const batchPromises = batch.map(async (user) => {
       try {
-  const surveyLink = `${BASE_URL}/survey.html?id=${user.id}`;
+        const surveyLink = `${getBaseUrl(req)}/survey.html?id=${user.id}`;
         const message = `Olá ${user.name}! 🎉\nSua opinião é muito importante. Por favor, responda nossa pesquisa rápida:\n\n${surveyLink}\n\nLeva menos de 1 minuto! ⏱️`;
         const templateData = (process.env.WHATSAPP_MODE || '').toLowerCase() === 'real'
           ? whatsappService.createSurveyTemplate(user.name, surveyLink)
