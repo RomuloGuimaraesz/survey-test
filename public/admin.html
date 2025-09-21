@@ -816,6 +816,7 @@
         <div class="table-title">Contatos</div>
         <div class="column-navigation">
           <button id="reset-demo-inline" style="display:none; background:#fff;color:#5200e7;border:1px solid #e1e5e9;border-radius:8px;padding:6px 10px;font-weight:600;cursor:pointer;margin-right:8px">Reset Demo Data</button>
+          <button id="restore-seed-inline" style="display:none; background:#fff;color:#0f7b0f;border:1px solid #cfe8cf;border-radius:8px;padding:6px 10px;font-weight:600;cursor:pointer;margin-right:8px">Restore Demo Data</button>
           <button class="nav-button" id="prevColumn" onclick="switchColumn(-1)">‹</button>
           <div class="column-indicator" id="columnIndicator">Nome • Idade</div>
           <button class="nav-button" id="nextColumn" onclick="switchColumn(1)">›</button>
@@ -1879,6 +1880,26 @@ function updateTableView() {
             inlineBtn.addEventListener('click', () => {
               const floating = document.getElementById('reset-demo-btn');
               if (floating) floating.click();
+            });
+          }
+          // Show restore seed button
+          const restoreBtn = document.getElementById('restore-seed-inline');
+          if (restoreBtn) {
+            restoreBtn.style.display = 'inline-block';
+            restoreBtn.addEventListener('click', async () => {
+              const loadingToast = toastManager.info('Restaurando dados de demonstração...', { title: 'Processando', progress: true, duration: 10000 });
+              try {
+                const res = await fetch('/api/admin/restore-seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(body.error || 'Restore failed');
+                toastManager.remove(loadingToast);
+                toastManager.success(body.message || 'Dados restaurados com sucesso.', { title: 'Concluído' });
+                loadContacts();
+              } catch (e) {
+                console.error('Restore error:', e);
+                toastManager.remove(loadingToast);
+                toastManager.error(e.message || 'Falha ao restaurar os dados.', { title: 'Erro' });
+              }
             });
           }
           const btn = document.createElement('button');

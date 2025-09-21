@@ -253,6 +253,29 @@ app.post('/api/admin/reset-data', (req, res) => {
   }
 });
 
+// Admin-only endpoint to restore demo data from bundled seed file
+app.post('/api/admin/restore-seed', (req, res) => {
+  if (!req.session?.authenticated) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  try {
+    const seedPath = path.join(__dirname, 'seed-data.json');
+    if (!fs.existsSync(seedPath)) {
+      return res.status(404).json({ error: 'Seed file not found' });
+    }
+    const raw = fs.readFileSync(seedPath, 'utf8');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ error: 'Seed data invalid: expected an array' });
+    }
+    writeDB(data);
+    res.json({ success: true, message: `Restored ${data.length} contacts from seed.` });
+  } catch (e) {
+    console.error('Restore seed error:', e);
+    res.status(500).json({ error: 'Failed to restore seed data' });
+  }
+});
+
 // --- Enhanced AI Endpoints ---
 
 // Original full response endpoint (for technical users and debugging)
