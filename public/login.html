@@ -8,11 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Sans:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
-        <style>
-            /* Small inline spinner shown only during redirect */
-            .btn-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: btnspin 1s linear infinite; margin-left: 8px; vertical-align: middle; }
-            @keyframes btnspin { to { transform: rotate(360deg); } }
-        </style>
 </head>
 <body class="form-page">
     <!-- Toast Container -->
@@ -31,7 +26,7 @@
             <form id="loginForm" autocomplete="off">
             <input type="text" id="username" name="username" placeholder="Usuário" required autocomplete="username">
             <input type="password" id="password" name="password" placeholder="Senha" required autocomplete="current-password">
-                <button type="submit" id="loginButton"><span id="btnText">Entrar</span><span id="btnSpinner" class="btn-spinner" style="display:none"></span></button>
+                <button type="submit" id="loginButton"><span id="btnText">Entrar</span><span id="btnSpinner" class="btn-spinner hidden"></span></button>
         </form>
     </div>
 

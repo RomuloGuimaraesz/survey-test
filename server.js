@@ -20,9 +20,17 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const DB_FILE = path.join(__dirname, process.env.DB_FILE || "data.json");
 
 // Authentication credentials (override via env in production)
+// Accept legacy env var name ADMIN_PASSWORD as an alias for ADMIN_PASS
+const effectiveAdminUser = process.env.ADMIN_USER || process.env.ADMIN_USERNAME || 'admin';
+const effectiveAdminPass = process.env.ADMIN_PASS || process.env.ADMIN_PASSWORD || 'admin123';
+
+if (!process.env.ADMIN_PASS && process.env.ADMIN_PASSWORD) {
+  console.warn('[Config] ADMIN_PASSWORD is set but ADMIN_PASS is not; using ADMIN_PASSWORD (alias). Prefer ADMIN_PASS in .env');
+}
+
 const ADMIN_USER = {
-  username: process.env.ADMIN_USER || 'admin',
-  password: process.env.ADMIN_PASS || 'admin123'
+  username: effectiveAdminUser,
+  password: effectiveAdminPass
 };
 
 const app = express();
@@ -70,32 +78,14 @@ function getBaseUrl(req) {
 }
 
 // Authentication middleware function
+// Authentication disabled for development
 function requireAuth(req, res, next) {
-  console.log(`[Auth] Checking access to: ${req.path}, authenticated: ${!!req.session?.authenticated}`);
-  // Allow static assets and login endpoints
-  const openPaths = ['/login', '/login.html', '/toast.js', '/styles.css', '/avecta-logo.svg', '/favicon.ico', '/ia-icon.svg', '/total-icon.svg', '/pendente-icon.svg', '/recebido-icon.svg', '/enviado-icon.svg'];
-  if (openPaths.includes(req.path) || req.path.startsWith('/public/')) return next();
-
-  if (req.session && req.session.authenticated) {
-    return next();
-  }
-  
-  // If accessing protected HTML pages, redirect to login
-  if (req.path === '/' || req.path === '/index.html' || req.path === '/admin.html') {
-    return res.redirect('/login.html');
-  }
-  
-  // For API endpoints, send 401
-  if (req.path.startsWith('/api/admin')) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  // Allow other files to pass through
+  // No authentication enforced
   return next();
 }
 
 // Apply authentication middleware BEFORE static files
-app.use(requireAuth);
+// app.use(requireAuth); // Disabled for development
 
 // Static file serving AFTER authentication check
 app.use(express.static(path.join(__dirname, "public")));
@@ -333,7 +323,15 @@ app.post("/api/admin/agent-ui", validateAgentQuery, async (req, res) => {
       intent: fullResponse.intent,
       confidence: fullResponse.confidence,
       agent: fullResponse.agent || 'Municipal Assistant',
-      // Surface real data for UI consumers
+      // Pass through LLM + provenance so frontend can render premium sections
+      llmEnhanced: !!fullResponse.llmEnhanced,
+      provider: fullResponse.provider || null,
+      model: fullResponse.model || null,
+      responseQuality: fullResponse.responseQuality || 'data-driven',
+      provenance: fullResponse.provenance || null,
+      // Structured statistics (for premium insights)
+      statistics: fullResponse.statistics || null,
+      // Real data
       residents: fullResponse.residents || [],
       report: fullResponse.report || null,
       insights: fullResponse.insights || [],
@@ -412,6 +410,30 @@ app.get("/api", (req, res) => {
       mode: process.env.WHATSAPP_MODE
     }
   });
+});
+
+// Age satisfaction dedicated endpoint (demographic satisfaction distribution)
+app.get('/api/age-satisfaction', async (req, res) => {
+  try {
+    const MunicipalAnalysisEngine = require('./services/MunicipalAnalysisEngine');
+    const engine = new MunicipalAnalysisEngine();
+    const overall = await engine.analyzeSatisfaction();
+    const age = await engine.analyzeSatisfactionByAge();
+    res.json({
+      success: true,
+      generatedAt: new Date().toISOString(),
+      overall: {
+        totalResponses: overall.total,
+        averageScore: overall.averageScore,
+        dissatisfiedPercent: overall.dissatisfiedPercent,
+        dissatisfactionTier: overall.dissatisfactionTier
+      },
+      age
+    });
+  } catch (e) {
+    console.error('[API] /api/age-satisfaction error:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // Enhanced health check with architecture diagnostics

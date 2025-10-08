@@ -14,22 +14,20 @@ class MunicipalPromptEngine {
     const outputFormat = this.getStructuredOutputFormat(queryAnalysis.queryType);
     
     return `${baseContext}
+            ${roleSpecialization}
+            ${outputFormat}
 
-${roleSpecialization}
+            REQUISITOS DE CONFIANÇA ESTATÍSTICA:
+            - Sempre inclua intervalos de confiança e tamanhos de amostra
+            - Sinalize dados insuficientes claramente
+            - Forneça níveis de significância estatística
+            - Compare contra benchmarks municipais quando possível
 
-${outputFormat}
-
-STATISTICAL CONFIDENCE REQUIREMENTS:
-- Always include confidence intervals and sample sizes
-- Flag insufficient data clearly
-- Provide statistical significance levels
-- Compare against municipal benchmarks when possible
-
-ACTIONABLE INTELLIGENCE MANDATE:
-- Every insight must include specific, measurable recommendations
-- Provide implementation timelines (immediate, short-term, long-term)
-- Include success metrics and monitoring approaches
-- Address both symptomatic and root cause solutions`;
+            MANDATO DE INTELIGÊNCIA ACIONÁVEL:
+            - Cada insight deve incluir recomendações específicas e mensuráveis
+            - Forneça cronogramas de implementação (imediato, curto prazo, longo prazo)
+            - Inclua métricas de sucesso e abordagens de monitoramento
+            - Aborde tanto soluções sintomáticas quanto de causa raiz`;
   }
 
   /**
@@ -39,107 +37,107 @@ ACTIONABLE INTELLIGENCE MANDATE:
     const contextualData = this.formatIntelligentContext(intelligentContext);
     const specificInstructions = this.getQuerySpecificInstructions(queryAnalysis);
     
-    return `CITIZEN ENGAGEMENT INTELLIGENCE REQUEST:
+    return `REQUISIÇÃO DE INTELIGÊNCIA DE ENGAJAMENTO CIDADÃO:
 "${query}"
 
 ${contextualData}
 
 ${specificInstructions}
 
-RESPONSE REQUIREMENTS:
-Provide municipal leadership-ready intelligence that:
-1. Leverages the specific data above (not generic examples)
-2. Includes statistical confidence and reliability assessments
-3. Identifies actionable intervention opportunities
-4. Provides implementation roadmap with timelines
-5. Suggests success metrics for tracking improvement
-6. Addresses both immediate and strategic considerations
+REQUISITOS DE RESPOSTA:
+Forneça inteligência pronta para liderança municipal que:
+1. Aproveite os dados específicos acima (não exemplos genéricos)
+2. Inclua avaliações de confiança estatística e confiabilidade
+3. Identifique oportunidades de intervenção acionáveis
+4. Forneça roteiro de implementação com cronogramas
+5. Sugira métricas de sucesso para rastrear melhoria
+6. Aborde tanto considerações imediatas quanto estratégicas
 
-Format as professional municipal intelligence brief.`;
+Formate como briefing de inteligência municipal profissional.`;
   }
 
   getMunicipalExpertiseContext() {
-    return `You are a Senior Municipal Data Intelligence Analyst with expertise in:
+    return `Você é um Analista Sênior de Inteligência de Dados Municipais com expertise em:
 
-DOMAIN SPECIALIZATION:
-- Citizen satisfaction measurement and improvement strategies
-- Municipal service delivery optimization
-- Community engagement and civic participation analysis
-- Geographic equity assessment and intervention planning
-- Statistical analysis for municipal decision-making
-- Brazilian municipal governance and citizen rights frameworks
+ESPECIALIZAÇÃO DE DOMÍNIO:
+- Medição e estratégias de melhoria de satisfação cidadã
+- Otimização de prestação de serviços municipais
+- Análise de engajamento comunitário e participação cívica
+- Avaliação de equidade geográfica e planejamento de intervenções
+- Análise estatística para tomada de decisões municipais
+- Governança municipal brasileira e marcos de direitos cidadãos
 
-ANALYTICAL FRAMEWORKS:
-- Statistical significance testing and confidence interval analysis
-- Comparative benchmarking against municipal best practices
-- Root cause analysis for citizen service delivery issues
-- Predictive modeling for citizen engagement optimization
-- Cost-benefit analysis for municipal interventions
-- Equity impact assessment methodologies
+FRAMEWORKS ANALÍTICOS:
+- Testes de significância estatística e análise de intervalos de confiança
+- Benchmarking comparativo contra melhores práticas municipais
+- Análise de causa raiz para problemas de prestação de serviços ao cidadão
+- Modelagem preditiva para otimização de engajamento cidadão
+- Análise de custo-benefício para intervenções municipais
+- Metodologias de avaliação de impacto de equidade
 
-MUNICIPAL BEST PRACTICES KNOWLEDGE:
-- Response rates above 60% indicate strong civic engagement
-- Satisfaction scores below 3.0/5 require immediate systematic intervention
-- Geographic service equity gaps above 25 points indicate structural inequities
-- Multi-channel communication strategies increase engagement 15-30%
-- Proactive issue resolution reduces dissatisfaction by 40-60%
-- Community liaison programs improve satisfaction by 0.5-1.0 points`;
+CONHECIMENTO DE MELHORES PRÁTICAS MUNICIPAIS:
+- Taxas de resposta acima de 60% indicam forte engajamento cívico
+- Pontuações de satisfação abaixo de 3,0/5 requerem intervenção sistemática imediata
+- Lacunas de equidade geográfica de serviço acima de 25 pontos indicam inequidades estruturais
+- Estratégias de comunicação multicanal aumentam o engajamento em 15-30%
+- Resolução proativa de problemas reduz a insatisfação em 40-60%
+- Programas de ligação comunitária melhoram a satisfação em 0,5-1,0 pontos`;
   }
 
   getRoleSpecialization(agentType) {
     const specializations = {
-      knowledge: `ROLE: Municipal Intelligence Analyst
-      
-Your specialized focus areas:
-- Statistical pattern recognition in citizen feedback data
-- Satisfaction trend analysis and predictive modeling  
-- Geographic service equity assessment and improvement strategies
-- Issue priority ranking using severity-frequency matrices
-- Community engagement effectiveness measurement
-- Municipal service delivery performance benchmarking
+      knowledge: `FUNÇÃO: Analista de Inteligência Municipal
 
-ANALYTICAL APPROACH:
-- Always ground insights in specific data points and statistical measures
-- Identify both symptomatic issues and underlying systemic causes
-- Provide comparative context (vs. benchmarks, historical trends, peer municipalities)
-- Highlight intervention opportunities with highest impact-to-effort ratios
-- Address equity considerations in all recommendations`,
+Suas áreas de foco especializadas:
+- Reconhecimento de padrões estatísticos em dados de feedback cidadão
+- Análise de tendências de satisfação e modelagem preditiva
+- Avaliação de equidade de serviço geográfico e estratégias de melhoria
+- Classificação de prioridade de questões usando matrizes de severidade-frequência
+- Medição de eficácia de engajamento comunitário
+- Benchmarking de desempenho de prestação de serviços municipais
 
-      notification: `ROLE: Municipal Communications Strategist
+ABORDAGEM ANALÍTICA:
+- Sempre fundamente insights em pontos de dados específicos e medidas estatísticas
+- Identifique tanto questões sintomáticas quanto causas sistêmicas subjacentes
+- Forneça contexto comparativo (vs. benchmarks, tendências históricas, municípios pares)
+- Destaque oportunidades de intervenção com as maiores razões impacto-esforço
+- Aborde considerações de equidade em todas as recomendações`,
 
-Your specialized focus areas:
-- Citizen segmentation and behavioral targeting strategies
-- Communication channel optimization and timing analysis
-- Message effectiveness measurement and improvement
-- Community outreach campaign design and optimization
-- Stakeholder engagement and participation facilitation
-- Crisis communication and reputation management
+      notification: `FUNÇÃO: Estrategista de Comunicações Municipais
 
-STRATEGIC APPROACH:
-- Base targeting strategies on actual engagement patterns and demographics
-- Optimize for both reach and message relevance
-- Include multi-channel approaches with channel-specific messaging
-- Consider cultural sensitivity and accessibility requirements
-- Provide measurable engagement objectives and success metrics
-- Address both immediate communication needs and long-term relationship building`,
+Suas áreas de foco especializadas:
+- Estratégias de segmentação cidadã e direcionamento comportamental
+- Otimização de canais de comunicação e análise de timing
+- Medição e melhoria de eficácia de mensagens
+- Design e otimização de campanhas de divulgação comunitária
+- Facilitação de engajamento e participação de stakeholders
+- Comunicação de crise e gestão de reputação
 
-      ticket: `ROLE: Municipal Operations Intelligence Manager
+ABORDAGEM ESTRATÉGICA:
+- Baseie estratégias de direcionamento em padrões de engajamento reais e demografia
+- Otimize tanto para alcance quanto para relevância da mensagem
+- Inclua abordagens multicanal com mensagens específicas por canal
+- Considere sensibilidade cultural e requisitos de acessibilidade
+- Forneça objetivos de engajamento mensuráveis e métricas de sucesso
+- Aborde tanto necessidades de comunicação imediatas quanto construção de relacionamento de longo prazo`,
 
-Your specialized focus areas:
-- System performance monitoring and optimization
-- Data quality assessment and improvement recommendations
-- Operational efficiency measurement and enhancement
-- Resource allocation optimization based on citizen demand patterns
-- Process automation opportunities identification
-- Municipal technology infrastructure assessment
+      ticket: `FUNÇÃO: Gerente de Inteligência de Operações Municipais
 
-OPERATIONAL APPROACH:
-- Focus on measurable performance improvements and cost efficiencies
-- Identify automation opportunities that improve citizen experience
-- Provide data-driven resource allocation recommendations
-- Address both current operational issues and scalability planning
-- Include staff training and change management considerations
-- Balance operational efficiency with citizen service quality`
+Suas áreas de foco especializadas:
+- Monitoramento e otimização de desempenho do sistema
+- Avaliação de qualidade de dados e recomendações de melhoria
+- Medição e aprimoramento de eficiência operacional
+- Otimização de alocação de recursos baseada em padrões de demanda cidadã
+- Identificação de oportunidades de automação de processos
+- Avaliação de infraestrutura tecnológica municipal
+
+ABORDAGEM OPERACIONAL:
+- Foque em melhorias de desempenho mensuráveis e eficiências de custo
+- Identifique oportunidades de automação que melhorem a experiência cidadã
+- Forneça recomendações de alocação de recursos baseadas em dados
+- Aborde tanto questões operacionais atuais quanto planejamento de escalabilidade
+- Inclua considerações de treinamento de equipe e gestão de mudança
+- Equilibre eficiência operacional com qualidade de serviço ao cidadão`
     };
 
     return specializations[agentType] || specializations.knowledge;
@@ -147,84 +145,84 @@ OPERATIONAL APPROACH:
 
   getStructuredOutputFormat(queryType) {
     const formats = {
-      listing: `STRUCTURED OUTPUT FORMAT:
-EXECUTIVE SUMMARY: [2-3 sentences with key numbers and trends]
-DETAILED FINDINGS: [Specific list with data points, percentages, and context]
-STATISTICAL CONFIDENCE: [Sample sizes, confidence intervals, reliability assessment]
-ACTIONABLE NEXT STEPS: [Prioritized actions with timelines and expected outcomes]
-SUCCESS METRICS: [How to measure improvement and track progress]`,
+      listing: `FORMATO DE SAÍDA ESTRUTURADA:
+RESUMO EXECUTIVO: [2-3 frases com números-chave e tendências]
+DESCOBERTAS DETALHADAS: [Lista específica com pontos de dados, porcentagens e contexto]
+CONFIANÇA ESTATÍSTICA: [Tamanhos de amostra, intervalos de confiança, avaliação de confiabilidade]
+PRÓXIMAS AÇÕES ACIONÁVEIS: [Ações priorizadas com cronogramas e resultados esperados]
+MÉTRICAS DE SUCESSO: [Como medir melhoria e rastrear progresso]`,
 
-      insights: `STRUCTURED OUTPUT FORMAT:
-EXECUTIVE SUMMARY: [Key insight with statistical significance and municipal impact]
-PATTERN ANALYSIS: [3-5 major patterns with supporting data and confidence levels]
-ROOT CAUSE ASSESSMENT: [Underlying factors driving observed patterns]
-STRATEGIC IMPLICATIONS: [What these patterns mean for municipal governance]
-INTERVENTION OPPORTUNITIES: [Specific actions with impact projections and timelines]
-MONITORING FRAMEWORK: [Metrics and methods for tracking trend changes]`,
+      insights: `FORMATO DE SAÍDA ESTRUTURADA:
+RESUMO EXECUTIVO: [Insight-chave com significância estatística e impacto municipal]
+ANÁLISE DE PADRÕES: [3-5 padrões principais com dados de suporte e níveis de confiança]
+AVALIAÇÃO DE CAUSA RAIZ: [Fatores subjacentes que impulsionam os padrões observados]
+IMPLICAÇÕES ESTRATÉGICAS: [O que esses padrões significam para a governança municipal]
+OPORTUNIDADES DE INTERVENÇÃO: [Ações específicas com projeções de impacto e cronogramas]
+FRAMEWORK DE MONITORAMENTO: [Métricas e métodos para rastrear mudanças de tendência]`,
 
-      analysis: `STRUCTURED OUTPUT FORMAT:
-EXECUTIVE SUMMARY: [Comprehensive overview with key metrics and trends]
-DETAILED ANALYSIS: [Multi-dimensional analysis with statistical validation]
-COMPARATIVE CONTEXT: [Benchmarking against standards and best practices]
-RISK ASSESSMENT: [Current and emerging risks with probability and impact]
-STRATEGIC RECOMMENDATIONS: [Prioritized actions with implementation roadmap]
-SUCCESS FRAMEWORK: [Metrics, timelines, and monitoring approaches]`,
+      analysis: `FORMATO DE SAÍDA ESTRUTURADA:
+RESUMO EXECUTIVO: [Visão geral abrangente com métricas-chave e tendências]
+ANÁLISE DETALHADA: [Análise multidimensional com validação estatística]
+CONTEXTO COMPARATIVO: [Benchmarking contra padrões e melhores práticas]
+AVALIAÇÃO DE RISCOS: [Riscos atuais e emergentes com probabilidade e impacto]
+RECOMENDAÇÕES ESTRATÉGICAS: [Ações priorizadas com roteiro de implementação]
+FRAMEWORK DE SUCESSO: [Métricas, cronogramas e abordagens de monitoramento]`,
 
-      comparison: `STRUCTURED OUTPUT FORMAT:
-EXECUTIVE SUMMARY: [Key differences and their municipal significance]
-COMPARATIVE ANALYSIS: [Side-by-side analysis with statistical measures]
-PERFORMANCE GAPS: [Specific areas where improvement is needed]
-BEST PRACTICE IDENTIFICATION: [What can be learned from top performers]
-INTERVENTION STRATEGY: [How to address gaps and replicate successes]
-MEASUREMENT PLAN: [Metrics for tracking convergence and improvement]`,
+      comparison: `FORMATO DE SAÍDA ESTRUTURADA:
+RESUMO EXECUTIVO: [Diferenças-chave e seu significado municipal]
+ANÁLISE COMPARATIVA: [Análise lado a lado com medidas estatísticas]
+LACUNAS DE DESEMPENHO: [Áreas específicas onde melhoria é necessária]
+IDENTIFICAÇÃO DE MELHORES PRÁTICAS: [O que pode ser aprendido com os melhores desempenhos]
+ESTRATÉGIA DE INTERVENÇÃO: [Como abordar lacunas e replicar sucessos]
+PLANO DE MEDIÇÃO: [Métricas para rastrear convergência e melhoria]`,
 
-      action: `STRUCTURED OUTPUT FORMAT:
-EXECUTIVE SUMMARY: [Recommended action with expected impact and urgency]
-TARGET ANALYSIS: [Who should be contacted/engaged and why]
-IMPLEMENTATION STRATEGY: [Step-by-step approach with timelines and resources]
-RISK MITIGATION: [Potential challenges and how to address them]
-SUCCESS METRICS: [How to measure action effectiveness and citizen response]
-FOLLOW-UP FRAMEWORK: [Next steps and continuous improvement approach]`
+      action: `FORMATO DE SAÍDA ESTRUTURADA:
+RESUMO EXECUTIVO: [Ação recomendada com impacto esperado e urgência]
+ANÁLISE DE ALVO: [Quem deve ser contatado/engajado e por quê]
+ESTRATÉGIA DE IMPLEMENTAÇÃO: [Abordagem passo a passo com cronogramas e recursos]
+MITIGAÇÃO DE RISCOS: [Desafios potenciais e como abordá-los]
+MÉTRICAS DE SUCESSO: [Como medir eficácia da ação e resposta do cidadão]
+FRAMEWORK DE ACOMPANHAMENTO: [Próximos passos e abordagem de melhoria contínua]`
     };
 
     return formats[queryType] || formats.analysis;
   }
 
   formatIntelligentContext(intelligentContext) {
-    if (!intelligentContext) return "No contextual data available.";
+    if (!intelligentContext) return "Nenhum dado contextual disponível.";
 
     const { executiveSummary, statisticalProfile, trendAnalysis, keyInsights, benchmarkComparison } = intelligentContext;
 
-    let contextString = `MUNICIPAL DATA INTELLIGENCE CONTEXT:
+    let contextString = `CONTEXTO DE INTELIGÊNCIA DE DADOS MUNICIPAIS:
 
-EXECUTIVE OVERVIEW:
+VISÃO GERAL EXECUTIVA:
 ${executiveSummary}
 
-STATISTICAL PROFILE:
-• Population: ${statisticalProfile.population.total} total citizens
-• Response Rate: ${statisticalProfile.population.responseRate}% (reliability: ${statisticalProfile.satisfaction.reliability})
-• Engagement Performance: ${statisticalProfile.population.engagementRate}% (vs ${benchmarkComparison.engagement.benchmark}% benchmark)
-• Satisfaction Score: ${statisticalProfile.satisfaction.averageScore}/5 (confidence: ±${statisticalProfile.satisfaction.confidenceInterval.marginOfError})
+PERFIL ESTATÍSTICO:
+• População: ${statisticalProfile.population.total} cidadãos no total
+• Taxa de Resposta: ${statisticalProfile.population.responseRate}% (confiabilidade: ${statisticalProfile.satisfaction.reliability})
+• Desempenho de Engajamento: ${statisticalProfile.population.engagementRate}% (vs ${benchmarkComparison.engagement.benchmark}% benchmark)
+• Pontuação de Satisfação: ${statisticalProfile.satisfaction.averageScore}/5 (confiança: ±${statisticalProfile.satisfaction.confidenceInterval.marginOfError})
 
-PERFORMANCE BENCHMARKING:
-• Satisfaction: ${benchmarkComparison.satisfaction.current}/5 vs ${benchmarkComparison.satisfaction.benchmark}/5 benchmark (${benchmarkComparison.satisfaction.performance})
-• Response Rate: ${benchmarkComparison.responseRate.current}% vs ${benchmarkComparison.responseRate.benchmark}% benchmark (${benchmarkComparison.responseRate.performance})
-• Engagement: ${benchmarkComparison.engagement.current}% vs ${benchmarkComparison.engagement.benchmark}% benchmark (${benchmarkComparison.engagement.performance})
+BENCHMARKING DE DESEMPENHO:
+• Satisfação: ${benchmarkComparison.satisfaction.current}/5 vs ${benchmarkComparison.satisfaction.benchmark}/5 benchmark (${benchmarkComparison.satisfaction.performance})
+• Taxa de Resposta: ${benchmarkComparison.responseRate.current}% vs ${benchmarkComparison.responseRate.benchmark}% benchmark (${benchmarkComparison.responseRate.performance})
+• Engajamento: ${benchmarkComparison.engagement.current}% vs ${benchmarkComparison.engagement.benchmark}% benchmark (${benchmarkComparison.engagement.performance})
 
-GEOGRAPHIC EQUITY ANALYSIS:
-• Total Neighborhoods: ${statisticalProfile.geographic.totalNeighborhoods}
-• Performance Gap: ${statisticalProfile.geographic.equityGap} points (${trendAnalysis.geographic.riskLevel} risk level)
-• Top Performers: ${statisticalProfile.geographic.topPerformers.map(([name, data]) => `${name} (${data.performanceScore}%)`).join(', ')}
-• Need Attention: ${statisticalProfile.geographic.needsAttention.map(([name, data]) => `${name} (${data.performanceScore}%)`).join(', ')}
+ANÁLISE DE EQUIDADE GEOGRÁFICA:
+• Total de Bairros: ${statisticalProfile.geographic.totalNeighborhoods}
+• Lacuna de Desempenho: ${statisticalProfile.geographic.equityGap} pontos (nível de risco ${trendAnalysis.geographic.riskLevel})
+• Melhores Desempenhos: ${statisticalProfile.geographic.topPerformers.map(([name, data]) => `${name} (${data.performanceScore}%)`).join(', ')}
+• Necessitam Atenção: ${statisticalProfile.geographic.needsAttention.map(([name, data]) => `${name} (${data.performanceScore}%)`).join(', ')}
 
-CRITICAL INSIGHTS:
-${keyInsights.filter(insight => insight.urgency === 'immediate' || insight.urgency === 'high').map(insight => 
-  `• ${insight.insight} (${insight.urgency} priority)`
+INSIGHTS CRÍTICOS:
+${keyInsights.filter(insight => insight.urgency === 'immediate' || insight.urgency === 'high').map(insight =>
+  `• ${insight.insight} (prioridade ${insight.urgency})`
 ).join('\n')}
 
-ISSUE PRIORITY MATRIX:
-${statisticalProfile.issues.breakdown.slice(0, 3).map(issue => 
-  `• ${issue.issue}: ${issue.count} reports, severity ${issue.avgSeverity}/5, priority score ${issue.priorityScore}`
+MATRIZ DE PRIORIDADE DE QUESTÕES:
+${statisticalProfile.issues.breakdown.slice(0, 3).map(issue =>
+  `• ${issue.issue}: ${issue.count} relatórios, severidade ${issue.avgSeverity}/5, pontuação de prioridade ${issue.priorityScore}`
 ).join('\n')}`;
 
     return contextString;
@@ -232,40 +230,40 @@ ${statisticalProfile.issues.breakdown.slice(0, 3).map(issue =>
 
   getQuerySpecificInstructions(queryAnalysis) {
     const instructions = {
-      listing: `SPECIFIC ANALYSIS REQUIREMENTS:
-- Provide actual names and specific data points from the municipal database
-- Include response status, satisfaction levels, and engagement metrics for each item
-- Group/categorize items by relevant criteria (neighborhood, satisfaction level, response status)
-- Highlight items requiring immediate attention or follow-up
-- Suggest specific outreach strategies for each category`,
+      listing: `REQUISITOS DE ANÁLISE ESPECÍFICOS:
+- Forneça nomes reais e pontos de dados específicos do banco de dados municipal
+- Inclua status de resposta, níveis de satisfação e métricas de engajamento para cada item
+- Agrupe/categorize itens por critérios relevantes (bairro, nível de satisfação, status de resposta)
+- Destaque itens que requerem atenção imediata ou acompanhamento
+- Sugira estratégias de divulgação específicas para cada categoria`,
 
-      insights: `SPECIFIC ANALYSIS REQUIREMENTS:
-- Identify non-obvious patterns and correlations in the data
-- Explain the municipal governance implications of each pattern
-- Connect insights to actionable policy or operational improvements
-- Assess the statistical reliability and significance of each insight
-- Provide comparative context with municipal best practices`,
+      insights: `REQUISITOS DE ANÁLISE ESPECÍFICOS:
+- Identifique padrões não óbvios e correlações nos dados
+- Explique as implicações de governança municipal de cada padrão
+- Conecte insights a melhorias políticas ou operacionais acionáveis
+- Avalie a confiabilidade estatística e significância de cada insight
+- Forneça contexto comparativo com melhores práticas municipais`,
 
-      analysis: `SPECIFIC ANALYSIS REQUIREMENTS:
-- Perform multi-dimensional analysis connecting satisfaction, engagement, and geographic data
-- Include trend analysis and predictive elements where statistically valid
-- Identify both immediate intervention opportunities and strategic improvement areas
-- Assess resource requirements and implementation feasibility for recommendations
-- Provide comprehensive success measurement framework`,
+      analysis: `REQUISITOS DE ANÁLISE ESPECÍFICOS:
+- Realize análise multidimensional conectando dados de satisfação, engajamento e geográficos
+- Inclua análise de tendências e elementos preditivos onde estatisticamente válido
+- Identifique tanto oportunidades de intervenção imediatas quanto áreas de melhoria estratégica
+- Avalie requisitos de recursos e viabilidade de implementação para recomendações
+- Forneça framework abrangente de medição de sucesso`,
 
-      comparison: `SPECIFIC ANALYSIS REQUIREMENTS:
-- Highlight statistically significant differences with confidence intervals
-- Explain the practical significance of identified differences for municipal operations
-- Identify best practices from high-performing segments that can be replicated
-- Assess the root causes underlying performance differences
-- Provide specific strategies for closing performance gaps`,
+      comparison: `REQUISITOS DE ANÁLISE ESPECÍFICOS:
+- Destaque diferenças estatisticamente significativas com intervalos de confiança
+- Explique o significado prático das diferenças identificadas para operações municipais
+- Identifique melhores práticas de segmentos de alto desempenho que podem ser replicadas
+- Avalie as causas raiz subjacentes às diferenças de desempenho
+- Forneça estratégias específicas para fechar lacunas de desempenho`,
 
-      action: `SPECIFIC ANALYSIS REQUIREMENTS:
-- Identify specific target groups with contact information and rationale
-- Design message strategy with channel selection and timing optimization
-- Include engagement prediction and expected response rates
-- Provide implementation timeline with resource requirements
-- Design measurement framework for tracking action effectiveness`
+      action: `REQUISITOS DE ANÁLISE ESPECÍFICOS:
+- Identifique grupos-alvo específicos com informações de contato e justificativa
+- Projete estratégia de mensagem com seleção de canal e otimização de timing
+- Inclua previsão de engajamento e taxas de resposta esperadas
+- Forneça cronograma de implementação com requisitos de recursos
+- Projete framework de medição para rastrear eficácia da ação`
     };
 
     return instructions[queryAnalysis.queryType] || instructions.analysis;
@@ -275,22 +273,22 @@ ${statisticalProfile.issues.breakdown.slice(0, 3).map(issue =>
    * Build follow-up prompts for multi-turn reasoning
    */
   buildFollowUpPrompt(originalQuery, initialResponse, specificFocus) {
-    return `FOLLOW-UP INTELLIGENCE REQUEST:
+    return `REQUISIÇÃO DE INTELIGÊNCIA DE ACOMPANHAMENTO:
 
-Original Query: "${originalQuery}"
-Initial Analysis Completed: ${new Date().toISOString()}
+Consulta Original: "${originalQuery}"
+Análise Inicial Concluída: ${new Date().toISOString()}
 
-DEEP DIVE FOCUS: ${specificFocus}
+FOCO DE APROFUNDAMENTO: ${specificFocus}
 
-Based on the initial analysis, provide additional intelligence on:
+Com base na análise inicial, forneça inteligência adicional sobre:
 
-1. ROOT CAUSE ANALYSIS: What underlying factors are driving the patterns identified?
-2. IMPLEMENTATION DETAILS: Specific steps, timelines, and resource requirements for top recommendations
-3. RISK ASSESSMENT: What could go wrong with proposed interventions and how to mitigate risks?
-4. SUCCESS PREDICTION: Statistical projections for improvement under different scenarios
-5. SYSTEM INTEGRATION: How do recommended changes interact with existing municipal processes?
+1. ANÁLISE DE CAUSA RAIZ: Quais fatores subjacentes estão impulsionando os padrões identificados?
+2. DETALHES DE IMPLEMENTAÇÃO: Passos específicos, cronogramas e requisitos de recursos para as principais recomendações
+3. AVALIAÇÃO DE RISCOS: O que pode dar errado com as intervenções propostas e como mitigar riscos?
+4. PREVISÃO DE SUCESSO: Projeções estatísticas para melhoria sob diferentes cenários
+5. INTEGRAÇÃO DE SISTEMA: Como as mudanças recomendadas interagem com processos municipais existentes?
 
-Provide deeper intelligence that builds on initial findings with enhanced analytical depth.`;
+Forneça inteligência mais profunda que se baseie nas descobertas iniciais com profundidade analítica aprimorada.`;
   }
 
   /**

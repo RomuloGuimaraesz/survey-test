@@ -21,6 +21,8 @@ class IntelligentDataProcessor {
     const trends = this.analyzeTrends(rawData);
     const insights = this.generateKeyInsights(statistics, trends);
     const risks = this.assessRisks(statistics, trends);
+    // Age-based satisfaction (lightweight) for demographic queries
+    const ageSatisfaction = this.analyzeAgeSatisfaction(rawData);
 
     return {
       executiveSummary: this.createExecutiveSummary(statistics, trends),
@@ -34,6 +36,7 @@ class IntelligentDataProcessor {
       benchmarkComparison: this.compareToBenchmarks(statistics),
       actionableMetrics: this.generateActionableMetrics(statistics, queryAnalysis),
       municipalContext: this.getMunicipalContext(),
+      ageSatisfaction,
       rawData: rawData  // Also include at root level for easy access
     };
   }
@@ -541,6 +544,42 @@ class IntelligentDataProcessor {
     summary += `.`;
     
     return summary;
+  }
+
+  // Lightweight age satisfaction distribution (non-LLM) used for context only
+  analyzeAgeSatisfaction(rawData) {
+    const responses = rawData.filter(r => r.survey && r.age);
+    if (responses.length === 0) {
+      return { totalResponses: 0, brackets: [] };
+    }
+    const weights = { 'Muito satisfeito': 5, 'Satisfeito': 4, 'Neutro': 3, 'Insatisfeito': 2, 'Muito insatisfeito': 1 };
+    const defs = [
+      { key: '15-24', min: 15, max: 24 },
+      { key: '25-34', min: 25, max: 34 },
+      { key: '35-44', min: 35, max: 44 },
+      { key: '45-54', min: 45, max: 54 },
+      { key: '55-64', min: 55, max: 64 },
+      { key: '65+', min: 65, max: 150 }
+    ];
+    const buckets = defs.map(d => ({ ...d, totalScore: 0, count: 0 }));
+    responses.forEach(r => {
+      const age = parseInt(r.age, 10);
+      if (isNaN(age)) return;
+      const b = buckets.find(d => age >= d.min && age <= d.max);
+      if (!b) return;
+      const s = weights[r.survey.satisfaction] ?? 3;
+      b.totalScore += s;
+      b.count++;
+    });
+    return {
+      totalResponses: responses.length,
+      brackets: buckets.filter(b => b.count > 0).map(b => ({
+        key: b.key,
+        label: b.key,
+        count: b.count,
+        averageScore: parseFloat((b.totalScore / b.count).toFixed(2))
+      }))
+    };
   }
 }
 

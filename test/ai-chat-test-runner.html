@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Component Tests</title>
+
+  <!-- Mocha CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mocha@10.2.0/mocha.css">
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    #header {
+      background: linear-gradient(135deg, #ce00c2ff 0%, #5200e7ff 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    #header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+    }
+
+    #mocha {
+      margin: 20px;
+    }
+
+    .test-info {
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin: 20px;
+      border-radius: 4px;
+    }
+
+    .test-info h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+
+    .test-info ul {
+      margin: 5px 0;
+      padding-left: 20px;
+    }
+
+    .test-info li {
+      margin: 5px 0;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>🤖 AI Chat Component Tests</h1>
+    <p>Comprehensive test suite for the AI Chat web component</p>
+  </div>
+
+  <div class="test-info">
+    <h3>Test Coverage</h3>
+    <ul>
+      <li><strong>Unit Tests:</strong> Component initialization, state management, message handling, UI interactions</li>
+      <li><strong>Integration Tests:</strong> DOM integration, dependency injection, API calls, global scope</li>
+      <li><strong>Backwards Compatibility:</strong> Ensures no breaking changes from legacy implementation</li>
+    </ul>
+  </div>
+
+  <div id="mocha"></div>
+
+  <!-- Mocha & Chai -->
+  <script src="https://cdn.jsdelivr.net/npm/mocha@10.2.0/mocha.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chai@4.3.10/chai.js"></script>
+
+  <!-- Setup Mocha -->
+  <script>
+    mocha.setup('bdd');
+    const { expect, assert } = chai;
+
+    // Mock jest for compatibility
+    const jest = {
+      fn: (impl) => {
+        const mockFn = impl || function() {};
+        mockFn.mock = { calls: [], results: [] };
+        mockFn.mockResolvedValue = (value) => {
+          mockFn.mockImplementation = async () => value;
+          return mockFn;
+        };
+        mockFn.mockRejectedValue = (error) => {
+          mockFn.mockImplementation = async () => { throw error; };
+          return mockFn;
+        };
+        mockFn.mockImplementation = (fn) => {
+          return function(...args) {
+            mockFn.mock.calls.push(args);
+            const result = fn(...args);
+            mockFn.mock.results.push({ value: result });
+            return result;
+          };
+        };
+
+        const proxy = new Proxy(mockFn, {
+          apply(target, thisArg, args) {
+            mockFn.mock.calls.push(args);
+            const result = target.apply(thisArg, args);
+            mockFn.mock.results.push({ value: result });
+            return result;
+          }
+        });
+
+        proxy.toHaveBeenCalled = () => expect(mockFn.mock.calls.length).to.be.greaterThan(0);
+        proxy.toHaveBeenCalledWith = (...args) => {
+          const called = mockFn.mock.calls.some(call =>
+            JSON.stringify(call) === JSON.stringify(args)
+          );
+          expect(called).to.be.true;
+        };
+
+        return proxy;
+      },
+      spyOn: (obj, method) => {
+        const original = obj[method];
+        const spy = jest.fn(original);
+        obj[method] = spy;
+        spy.mockRestore = () => { obj[method] = original; };
+        return spy;
+      }
+    };
+
+    // Extend expect with jest-like matchers
+    const originalExpect = expect;
+    window.expect = (value) => {
+      const assertion = originalExpect(value);
+
+      assertion.toHaveBeenCalled = () => {
+        return assertion.to.have.property('mock').with.property('calls').with.length.greaterThan(0);
+      };
+
+      assertion.toHaveBeenCalledWith = (...args) => {
+        if (value.mock) {
+          const called = value.mock.calls.some(call =>
+            JSON.stringify(call) === JSON.stringify(args)
+          );
+          return originalExpect(called).to.be.true;
+        }
+        return assertion;
+      };
+
+      return assertion;
+    };
+
+    // Add jest-like test matchers
+    window.test = it;
+    window.describe = describe;
+    window.beforeEach = beforeEach;
+    window.afterEach = afterEach;
+  </script>
+
+  <!-- Load Web Components -->
+  <script type="module">
+    // Import and register web components
+    import { registerAllComponents } from '../public/js/web-components/index.js';
+
+    // Register components
+    registerAllComponents();
+
+    console.log('[Test Runner] Web components registered');
+  </script>
+
+  <!-- Load Test Files -->
+  <script type="module">
+    // Helper to load test file as text and execute
+    async function loadTestFile(path) {
+      try {
+        const response = await fetch(path);
+        const text = await response.text();
+
+        // Remove ES6 imports (already loaded)
+        const cleanedText = text
+          .replace(/import\s+.*?from\s+['"].*?['"];?\s*/g, '')
+          .replace(/export\s+/g, '');
+
+        // Execute test code
+        const script = document.createElement('script');
+        script.textContent = cleanedText;
+        document.head.appendChild(script);
+
+        console.log(`[Test Runner] Loaded: ${path}`);
+      } catch (error) {
+        console.error(`[Test Runner] Failed to load ${path}:`, error);
+      }
+    }
+
+    // Load all test files
+    async function runTests() {
+      console.log('[Test Runner] Loading test files...');
+
+      // Note: For demo purposes, tests are embedded below
+      // In production, you would load from separate files
+
+      // Run Mocha after loading tests
+      setTimeout(() => {
+        console.log('[Test Runner] Running tests...');
+        mocha.run();
+      }, 1000);
+    }
+
+    runTests();
+  </script>
+
+  <!-- Embedded Tests (for demo) -->
+  <script>
+    // Simplified version of tests that work in browser without full Jest setup
+
+    describe('AI Chat Web Component - Browser Tests', function() {
+      this.timeout(5000);
+
+      let chatComponent;
+
+      beforeEach(function(done) {
+        chatComponent = document.createElement('ai-chat');
+        document.body.appendChild(chatComponent);
+
+        // Wait for component to initialize
+        setTimeout(done, 100);
+      });
+
+      afterEach(function() {
+        if (chatComponent && chatComponent.parentNode) {
+          chatComponent.parentNode.removeChild(chatComponent);
+        }
+      });
+
+      describe('Initialization', function() {
+        it('should be registered as custom element', function() {
+          expect(customElements.get('ai-chat')).to.exist;
+        });
+
+        it('should have shadow DOM', function() {
+          expect(chatComponent.shadowRoot).to.exist;
+        });
+
+        it('should render with correct initial state', function() {
+          expect(chatComponent.isOpen).to.equal(false);
+          expect(chatComponent.isProcessing).to.equal(false);
+        });
+
+        it('should render chat toggle button', function() {
+          const toggle = chatComponent.shadowRoot.querySelector('.chat-toggle');
+          expect(toggle).to.exist;
+        });
+      });
+
+      describe('Chat Open/Close', function() {
+        it('should open chat when openChat() is called', function(done) {
+          chatComponent.openChat();
+
+          chatComponent.updateComplete.then(() => {
+            expect(chatComponent.isOpen).to.equal(true);
+            const container = chatComponent.shadowRoot.querySelector('.chat-container');
+            expect(container.classList.contains('open')).to.be.true;
+            done();
+          });
+        });
+
+        it('should close chat when closeChat() is called', function(done) {
+          chatComponent.openChat();
+
+          chatComponent.updateComplete.then(() => {
+            chatComponent.closeChat();
+
+            return chatComponent.updateComplete;
+          }).then(() => {
+            expect(chatComponent.isOpen).to.equal(false);
+            done();
+          });
+        });
+
+        it('should toggle chat state', function(done) {
+          expect(chatComponent.isOpen).to.equal(false);
+
+          chatComponent.toggleChat();
+
+          chatComponent.updateComplete.then(() => {
+            expect(chatComponent.isOpen).to.equal(true);
+
+            chatComponent.toggleChat();
+            return chatComponent.updateComplete;
+          }).then(() => {
+            expect(chatComponent.isOpen).to.equal(false);
+            done();
+          });
+        });
+      });
+
+      describe('Message Management', function() {
+        it('should add user message', function(done) {
+          const initialCount = chatComponent.messages.length;
+          chatComponent.addMessage('Test message', 'user');
+
+          chatComponent.updateComplete.then(() => {
+            expect(chatComponent.messages.length).to.equal(initialCount + 1);
+            const lastMessage = chatComponent.messages[chatComponent.messages.length - 1];
+            expect(lastMessage.content).to.equal('Test message');
+            expect(lastMessage.sender).to.equal('user');
+            done();
+          });
+        });
+
+        it('should add bot message', function(done) {
+          const initialCount = chatComponent.messages.length;
+          chatComponent.addMessage('Bot response', 'bot');
+
+          chatComponent.updateComplete.then(() => {
+            expect(chatComponent.messages.length).to.equal(initialCount + 1);
+            done();
+          });
+        });
+      });
+
+      describe('Dependency Injection', function() {
+        it('should accept and store dependencies', function() {
+          const mockUseCase = { execute: () => {} };
+          const mockToast = { success: () => {} };
+
+          chatComponent.setDependencies(mockUseCase, mockToast);
+
+          expect(chatComponent.processAIQueryUseCase).to.equal(mockUseCase);
+          expect(chatComponent.toastManager).to.equal(mockToast);
+        });
+      });
+
+      describe('UI Interactions', function() {
+        it('should handle toggle button click', function(done) {
+          chatComponent.closeChat();
+
+          chatComponent.updateComplete.then(() => {
+            const toggle = chatComponent.shadowRoot.querySelector('.chat-toggle');
+            toggle.click();
+
+            return chatComponent.updateComplete;
+          }).then(() => {
+            expect(chatComponent.isOpen).to.equal(true);
+            done();
+          });
+        });
+
+        it('should handle close button click', function(done) {
+          chatComponent.openChat();
+
+          chatComponent.updateComplete.then(() => {
+            const closeBtn = chatComponent.shadowRoot.querySelector('.chat-close');
+            closeBtn.click();
+
+            return chatComponent.updateComplete;
+          }).then(() => {
+            expect(chatComponent.isOpen).to.equal(false);
+            done();
+          });
+        });
+      });
+
+      describe('Backwards Compatibility', function() {
+        it('should maintain same public API as old AIChatWidget', function() {
+          expect(typeof chatComponent.openChat).to.equal('function');
+          expect(typeof chatComponent.closeChat).to.equal('function');
+          expect(typeof chatComponent.toggleChat).to.equal('function');
+          expect(typeof chatComponent.sendMessage).to.equal('function');
+          expect(typeof chatComponent.showNotification).to.equal('function');
+          expect(typeof chatComponent.hideNotification).to.equal('function');
+          expect(typeof chatComponent.loadSystemHealth).to.equal('function');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

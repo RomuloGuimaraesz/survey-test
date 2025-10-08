@@ -32,6 +32,15 @@ class IntelligentKnowledgeAgent {
           intelligenceLevel: preloadedContext.llmResult.intelligenceLevel,
           quality: preloadedContext.llmResult.quality,
           realData: true,
+          provenance: {
+            source: 'knowledge_agent+groq_llm',
+            llm: {
+              provider: preloadedContext.llmResult.provider || 'groq',
+              model: preloadedContext.llmResult.model || null,
+              quality: preloadedContext.llmResult.quality || null
+            },
+            pipelineVersion: preloadedContext.llmResult.pipelineVersion || null
+          },
           timestamp: new Date().toISOString(),
           success: true
         };
@@ -46,13 +55,18 @@ class IntelligentKnowledgeAgent {
           query,
           analysis: {
             summary: preloadedContext.llmSynthesis.synthesis,
-            insights: [`Processed ${preloadedContext.dataContext?.raw?.totalContacts || 'unknown'} contacts`],
-            recommendations: ['Data-driven insights provided above'],
+            insights: [`Processados ${preloadedContext.dataContext?.raw?.totalContacts || 'desconhecido'} contatos`],
+            recommendations: ['Insights baseados em dados fornecidos acima'],
             type: preloadedContext.queryAnalysis?.queryType || 'legacy_synthesis'
           },
           dataSource: 'municipal_intelligence_system',
           intelligenceLevel: preloadedContext.llmSynthesis.intelligenceLevel,
           realData: true,
+          provenance: {
+            source: 'knowledge_agent+legacy_llm',
+            llm: { provider: preloadedContext.llmSynthesis.provider || 'unknown', model: preloadedContext.llmSynthesis.model || null },
+            pipelineVersion: preloadedContext.llmSynthesis.pipelineVersion || null
+          },
           timestamp: new Date().toISOString(),
           success: true
         };
@@ -152,29 +166,40 @@ class IntelligentKnowledgeAgent {
     const recommendations = [];
     
     if (stats) {
-      summary = `Municipal analysis of ${stats.population.total} citizens with ${stats.population.responseRate}% response rate. `;
-      summary += `Average satisfaction: ${stats.satisfaction.averageScore}/5. `;
-      summary += `Coverage: ${stats.geographic.totalNeighborhoods} neighborhoods.`;
-      
+      summary = `Análise municipal de ${stats.population.total} cidadãos com ${stats.population.responseRate}% de taxa de resposta. `;
+      summary += `Satisfação média: ${stats.satisfaction.averageScore}/5. `;
+      summary += `Cobertura: ${stats.geographic.totalNeighborhoods} bairros.`;
+      // If query requests age analysis explicitly, try to enrich with age distribution placeholder
+      const ql = query.toLowerCase();
+      if ((ql.includes('idade') || ql.includes('faixa et') || ql.includes('faixa-et')) && context.ageSatisfaction) {
+        const ageSat = context.ageSatisfaction;
+        if (ageSat.totalResponses > 0) {
+          const topBracket = [...ageSat.brackets].sort((a,b)=>b.count-a.count)[0];
+          summary += ` Satisfação por idade disponível (${ageSat.totalResponses} respostas com idade); faixa mais representada: ${topBracket.label}.`;
+        } else {
+          summary += ' Dados de idade insuficientes para análise por faixa etária.';
+        }
+      }
+
       // Generate contextual insights
       if (parseFloat(stats.satisfaction.averageScore) < 3.0) {
-        insights.push('Satisfaction scores below 3.0/5 indicate need for systematic intervention');
-        recommendations.push('Priority focus on addressing dissatisfaction through direct engagement');
+        insights.push('Pontuações de satisfação abaixo de 3,0/5 indicam necessidade de intervenção sistemática');
+        recommendations.push('Foco prioritário em abordar insatisfação através de engajamento direto');
       }
-      
+
       if (parseFloat(stats.population.responseRate) < 50) {
-        insights.push('Response rate below 50% suggests engagement optimization opportunities');
-        recommendations.push('Implement multi-channel outreach to improve participation');
+        insights.push('Taxa de resposta abaixo de 50% sugere oportunidades de otimização de engajamento');
+        recommendations.push('Implementar divulgação multicanal para melhorar participação');
       }
-      
+
       if (parseFloat(stats.geographic.equityGap) > 25) {
-        insights.push('Geographic equity gap exceeds 25 points indicating service disparities');
-        recommendations.push('Targeted intervention for underperforming neighborhoods');
+        insights.push('Lacuna de equidade geográfica excede 25 pontos indicando disparidades de serviço');
+        recommendations.push('Intervenção direcionada para bairros com baixo desempenho');
       }
     } else {
-      summary = `Municipal knowledge analysis ready for: "${query}". Enhanced data processing available with adequate citizen feedback data.`;
-      insights.push('Sufficient data collection needed for detailed analysis');
-      recommendations.push('Implement systematic citizen feedback mechanisms');
+      summary = `Análise de conhecimento municipal pronta para: "${query}". Processamento aprimorado de dados disponível com dados adequados de feedback cidadão.`;
+      insights.push('Coleta de dados suficiente necessária para análise detalhada');
+      recommendations.push('Implementar mecanismos sistemáticos de feedback cidadão');
     }
     
     return {
@@ -190,6 +215,11 @@ class IntelligentKnowledgeAgent {
       dataSource: 'municipal_intelligence_system',
       intelligenceLevel: 'fallback_intelligent',
       realData: true,
+      provenance: {
+        source: 'knowledge_agent+fallback',
+        llm: { used: false },
+        pipelineVersion: null
+      },
       timestamp: new Date().toISOString(),
       success: true
     };
@@ -214,6 +244,11 @@ class IntelligentKnowledgeAgent {
       analysisType,
       dataSource: 'data.json',
       realData: true,
+      provenance: {
+        source: 'knowledge_agent+direct_analysis',
+        llm: { used: false },
+        pipelineVersion: null
+      },
       timestamp: new Date().toISOString(),
       success: true
     };
@@ -225,10 +260,11 @@ class IntelligentKnowledgeAgent {
       error: error.message,
       analysis: {
         summary: this.getFallbackResponse(query),
-        insights: ['System error occurred during processing'],
-        recommendations: ['Retry query or contact system administrator'],
+        insights: ['Erro do sistema ocorreu durante o processamento'],
+        recommendations: ['Tente novamente ou contate o administrador do sistema'],
         type: 'error_fallback'
       },
+      provenance: { source: 'knowledge_agent+error', llm: { used: false } },
       timestamp: new Date().toISOString(),
       success: false
     };
@@ -238,6 +274,10 @@ class IntelligentKnowledgeAgent {
   
   determineAnalysisType(query) {
     const queryLower = query.toLowerCase();
+    // NEW: age satisfaction detection (faixa etária, idade)
+    if ((queryLower.includes('idade') || queryLower.includes('faixa et') || queryLower.includes('faixa-et')) && (queryLower.includes('satisf'))) {
+      return 'age_satisfaction';
+    }
     
     if (queryLower.includes('summary') || queryLower.includes('overview') || 
         queryLower.includes('analysis') || queryLower.includes('report')) {
@@ -280,6 +320,10 @@ class IntelligentKnowledgeAgent {
         if (query.toLowerCase().includes('neighborhood') || query.toLowerCase().includes('bairro')) {
           analysis.neighborhoods = await this.analysisEngine.analyzeNeighborhoods();
         }
+        break;
+      case 'age_satisfaction':
+        analysis.satisfaction = await this.analysisEngine.analyzeSatisfaction();
+        analysis.ageSatisfaction = await this.analysisEngine.analyzeSatisfactionByAge();
         break;
         
       case 'issues':
@@ -339,6 +383,12 @@ class IntelligentKnowledgeAgent {
 
   generateSummary(analysisType, analysis, query) {
     switch (analysisType) {
+      case 'age_satisfaction':
+        const ageSat = analysis.ageSatisfaction;
+        if (!ageSat || ageSat.totalResponses === 0) {
+          return 'Sem dados suficientes de idade para análise de satisfação por faixa etária.';
+        }
+        return `Análise de satisfação por idade: ${ageSat.totalResponses} respostas com idade; ${ageSat.brackets.length} faixas com dados.`;
       case 'satisfaction':
         const sat = analysis.satisfaction;
         if (!sat || sat.total === 0) {

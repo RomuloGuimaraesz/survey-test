@@ -3,12 +3,14 @@ const axios = require('axios');
 const IntelligentDataProcessor = require('./services/IntelligentDataProcessor');
 const MunicipalPromptEngine = require('./services/MunicipalPromptEngine');
 const ResponseProcessor = require('./services/ResponseProcessor');
+const ScopeClassifier = require('./services/ScopeClassifier');
 
 class IntelligentOrchestrator {
   constructor() {
     this.dataProcessor = new IntelligentDataProcessor();
     this.promptEngine = new MunicipalPromptEngine();
     this.responseProcessor = new ResponseProcessor();
+    this.scopeClassifier = new ScopeClassifier();
     this.name = 'Intelligent Municipal Orchestrator';
     this.version = '2.0-streamlined';
   }
@@ -18,9 +20,76 @@ class IntelligentOrchestrator {
     console.log(`[${this.name}] Processing: "${query}"`);
 
     try {
+      // NEW PHASE 0: Domain Scope Classification (LLM-based)
+      let scope = null;
+      try {
+        scope = await this.scopeClassifier.classify(query);
+        if (scope) {
+          console.log(`[ScopeClassifier] inScope=${scope.inScope} confidence=${scope.confidence} intent=${scope.canonical_intent || 'n/a'}`);
+        }
+      } catch (e) {
+        console.warn('[ScopeClassifier] classification failed:', e.message);
+      }
+
+      if (scope && scope.inScope === false) {
+        return {
+          query,
+          intent: 'out_of_scope',
+          response: 'Consulta fora do escopo da Inteligência Municipal. Reformule dentro de: satisfação cidadã, engajamento, equidade geográfica, desempenho operacional, benchmarking ou análise de pesquisa.',
+          success: true,
+          scope: {
+            reason: scope.reason,
+            confidence: scope.confidence
+          },
+          residents: [],
+          processingTime: Date.now() - startTime,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // SECONDARY HEURISTIC: If classifier uncertain & query lacks tokens, block early
+      if (scope && scope.inScope === true && scope.confidence < 0.65) {
+        const ql = query.toLowerCase();
+        const municipalTokens = [
+          'satisfacao','satisfação','engajamento','participacao','participação','bairro','equidade','municip','cidada','cidadã','cidadão','governanca','governança','resposta','taxa','survey','residente','morador'
+        ];
+        const matches = municipalTokens.filter(t => ql.includes(t)).length;
+        if (matches === 0) {
+          return {
+            query,
+            intent: 'out_of_scope',
+            response: 'Consulta fora do escopo da Inteligência Municipal. Reformule dentro de: satisfação cidadã, engajamento, equidade geográfica, desempenho operacional, benchmarking ou análise de pesquisa.',
+            success: true,
+            scope: {
+              reason: 'Low-confidence classification and no municipal domain tokens detected',
+              confidence: scope.confidence
+            },
+            residents: [],
+            processingTime: Date.now() - startTime,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+
       // Phase 1: Query Analysis
       const queryAnalysis = this.analyzeQueryIntelligently(query);
       console.log(`[Orchestrator] Intent: ${queryAnalysis.primaryIntent}, Type: ${queryAnalysis.queryType}`);
+
+      // OPTIONAL: If classifier provided a canonical intent we can map it.
+      if (scope && scope.inScope && scope.canonical_intent) {
+        const intentMap = {
+          satisfaction: 'knowledge',
+          engagement: 'notification',
+          geographic: 'knowledge',
+          operational: 'ticket',
+          benchmarking: 'knowledge',
+          survey: 'knowledge'
+        };
+        const mapped = intentMap[scope.canonical_intent];
+        if (mapped) {
+          queryAnalysis.primaryIntent = mapped;
+        }
+      }
 
       // Phase 2: Generate Real Data Context
       const intelligentContext = await this.dataProcessor.generateIntelligentContext(queryAnalysis);
@@ -234,6 +303,10 @@ class IntelligentOrchestrator {
   }
 
   buildFocusedSystemPrompt(queryAnalysis, agentResult) {
+    const preferredLocale = process.env.PREFERRED_LOCALE || 'pt-BR';
+    const localeDirective = preferredLocale.toLowerCase().startsWith('pt')
+      ? 'Todas as respostas devem estar em Português do Brasil (pt-BR), usando terminologia municipal adequada.'
+      : `All responses must be in locale: ${preferredLocale}.`;
     return `You are a Municipal Intelligence Analyst providing data-driven insights for city governance.
 
 CRITICAL INSTRUCTION: You have been provided with REAL citizen data including actual names and details. 
@@ -244,6 +317,8 @@ Your response should:
 2. Reference the actual data provided (names, neighborhoods, issues)
 3. Offer actionable recommendations based on the real patterns
 4. Maintain professional municipal reporting standards
+
+LANGUAGE REQUIREMENT: ${localeDirective}
 
 Focus on ${queryAnalysis.primaryIntent} analysis with ${queryAnalysis.queryType} format.`;
   }
@@ -262,6 +337,10 @@ Focus on ${queryAnalysis.primaryIntent} analysis with ${queryAnalysis.queryType}
       }
     }
 
+    const preferredLocale = process.env.PREFERRED_LOCALE || 'pt-BR';
+    const languageReminder = preferredLocale.toLowerCase().startsWith('pt')
+      ? 'Responda exclusivamente em Português do Brasil (pt-BR). Não traduza nomes próprios. Use termos como: taxa de resposta, satisfação média, participação, equidade geográfica.'
+      : `Respond strictly in locale ${preferredLocale}.`;
     return `Query: "${query}"
 
 MUNICIPAL DATABASE STATISTICS:
@@ -275,7 +354,9 @@ AGENT ANALYSIS RESULTS:
 ${agentResult.analysis?.summary || 'Analysis completed'}
 
 Provide a professional municipal intelligence brief that incorporates the ACTUAL resident data above.
-Focus on actionable insights and maintain factual accuracy using the real names and data provided.`;
+Focus on actionable insights and maintain factual accuracy using the real names and data provided.
+
+${languageReminder}`;
   }
 
   constructFinalResponse(query, queryAnalysis, intelligentContext, agentResult, llmResult, startTime, knowledgeResult = null) {
@@ -339,6 +420,25 @@ Focus on actionable insights and maintain factual accuracy using the real names 
       architecture: {
         version: this.version,
         components: ['IntelligentDataProcessor', 'AgentRouter', llmResult ? 'LLM-Enhancement' : null].filter(Boolean)
+      },
+
+      // Provenance & traceability
+      provenance: {
+        agent: agentResult.agent || 'unknown',
+        agentType: queryAnalysis.primaryIntent,
+        source: responseQuality === 'llm-enhanced' ? 'knowledge_agent+groq_llm' : 'knowledge_agent',
+        llm: {
+          used: !!llmResult && responseQuality === 'llm-enhanced',
+          provider: llmResult?.provider || null,
+          model: llmResult?.model || null,
+          quality: llmResult?.quality || null
+        },
+        dataVersions: {
+          satisfaction: agentResult.analysis?.data?.satisfaction?.meta?.computationVersion || agentResult.analysis?.satisfaction?.meta?.computationVersion || null,
+          neighborhoods: agentResult.analysis?.data?.neighborhoods?.meta?.computationVersion || agentResult.analysis?.neighborhoods?.meta?.computationVersion || null
+        },
+        pipelineVersion: this.version,
+        assertedBy: 'IntelligentOrchestrator'
       },
       
       timestamp: new Date().toISOString()

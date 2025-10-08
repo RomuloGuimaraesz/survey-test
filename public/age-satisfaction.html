@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Relatório: Satisfação por Idade</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="report-page">
+  <header class="report-header">
+    <div class="title">Satisfação por Idade</div>
+    <div class="actions">
+      <button class="button" onclick="window.history.back()">← Voltar</button>
+      <button class="button" onclick="window.print()">Imprimir / Salvar PDF</button>
+    </div>
+  </header>
+
+  <main class="report-main">
+    <div class="muted mb-8">Relatório demográfico (faixas etárias) – <span id="generatedAt">Carregando...</span></div>
+
+    <div id="status">
+      <div class="card">
+        <div class="muted">Carregando dados...</div>
+      </div>
+    </div>
+
+    <div id="content" style="display:none;">
+      <!-- Summary Cards -->
+      <div class="card">
+        <h2 style="margin: 4px 0 12px;">Resumo Geral</h2>
+        <div class="grid">
+          <div class="metric">
+            <div class="label">Total Respostas Idade</div>
+            <div class="value" id="totalAge">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">Média Global</div>
+            <div class="value" id="avgGlobal">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">Dissatisfação %</div>
+            <div class="value" id="dissPercent">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">Faixas com Dados</div>
+            <div class="value" id="bracketCount">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Age Distribution Table -->
+      <div class="card">
+        <h2 style="margin: 4px 0 12px;">Distribuição por Faixa</h2>
+        <div style="overflow-x: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Faixa</th>
+                <th>Respostas (n)</th>
+                <th>Média Satisfação</th>
+                <th>Classificação</th>
+              </tr>
+            </thead>
+            <tbody id="ageTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Insight Summary -->
+      <div class="card">
+        <h2 style="margin: 4px 0 8px;">Insight Rápido</h2>
+        <div class="summary" id="insightSummary">—</div>
+      </div>
+
+      <!-- Recommendations -->
+      <div class="card">
+        <h2 style="margin: 4px 0 8px;">Recomendações</h2>
+        <ul id="recommendationsList"></ul>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function loadAgeSatisfaction() {
+      try {
+        const res = await fetch('/api/age-satisfaction');
+        if (!res.ok) throw new Error('Falha ao carregar endpoint');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Erro desconhecido');
+
+        document.getElementById('generatedAt').textContent = new Date(data.generatedAt).toLocaleString('pt-BR');
+
+        const age = data.age;
+        const overall = data.overall;
+        const statusEl = document.getElementById('status');
+        const contentEl = document.getElementById('content');
+
+        if (age.totalResponses === 0) {
+          statusEl.innerHTML = '<div class="card"><div class="muted">Nenhum dado de idade disponível.</div></div>';
+          return;
+        }
+
+        statusEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        // Populate summary metrics
+        document.getElementById('totalAge').textContent = age.totalResponses;
+        document.getElementById('avgGlobal').textContent = overall.averageScore ? overall.averageScore + '/5' : '—';
+        document.getElementById('dissPercent').textContent = overall.dissatisfiedPercent ?
+          (overall.dissatisfiedPercent.toFixed ? overall.dissatisfiedPercent.toFixed(1) + '%' : overall.dissatisfiedPercent + '%') : '—';
+        document.getElementById('bracketCount').textContent = age.brackets.length;
+
+        // Populate age distribution table
+        const tbody = document.getElementById('ageTableBody');
+        tbody.innerHTML = '';
+        age.brackets.forEach(b => {
+          const tr = document.createElement('tr');
+          const quality = b.averageScore >= 4 ? 'good' : (b.averageScore < 3 ? 'insufficient' : 'limited');
+          const qualityText = quality === 'good' ? 'Bom' : quality === 'limited' ? 'Limitado' : 'Insuficiente';
+          const qualityColor = quality === 'good' ? '#1d7a36' : quality === 'limited' ? '#946200' : '#b40000';
+          const qualityBg = quality === 'good' ? '#e3f7e9' : quality === 'limited' ? '#fff4d6' : '#ffe5e5';
+
+          tr.innerHTML = `
+            <td>${b.label}</td>
+            <td>${b.count}</td>
+            <td>${b.averageScore.toFixed(2)}</td>
+            <td><span style="display: inline-block; padding: .25rem .55rem; border-radius: 4px; font-size: .75rem; font-weight: 600; background: ${qualityBg}; color: ${qualityColor};">${qualityText}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // Populate insight summary
+        document.getElementById('insightSummary').textContent = age.insightSummary || '—';
+
+        // Populate recommendations
+        const recUl = document.getElementById('recommendationsList');
+        recUl.innerHTML = '';
+        if (age.recommendations && age.recommendations.length > 0) {
+          age.recommendations.forEach(r => {
+            const li = document.createElement('li');
+            li.textContent = r;
+            recUl.appendChild(li);
+          });
+        } else {
+          recUl.innerHTML = '<li class="empty">Nenhuma recomendação disponível.</li>';
+        }
+      } catch (e) {
+        const statusEl = document.getElementById('status');
+        statusEl.innerHTML = `<div class="card error">Erro: ${e.message}</div>`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadAgeSatisfaction);
+  </script>
+</body>
+</html>

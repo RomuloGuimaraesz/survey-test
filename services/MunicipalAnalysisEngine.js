@@ -42,7 +42,7 @@ class MunicipalAnalysisEngine {
       totalResponses += count;
     });
 
-    const averageScore = totalResponses > 0 ? (totalScore / totalResponses).toFixed(2) : 0;
+    const averageScoreNumeric = totalResponses > 0 ? (totalScore / totalResponses) : 0;
 
     // Create breakdown with percentages
     const breakdown = Object.entries(rawData.breakdown).map(([level, count]) => ({
@@ -50,30 +50,120 @@ class MunicipalAnalysisEngine {
       count,
       percentage: ((count / rawData.total) * 100).toFixed(1)
     }));
-
     // Generate insights
-    const analysis = this.generateSatisfactionInsights(rawData, averageScore, breakdown);
+    const analysis = this.generateSatisfactionInsights(rawData, averageScoreNumeric, breakdown);
+
+    const dissatisfaction = this.calculateDissatisfactionStats(breakdown);
+
+    // Integrity check
+    const sumCounts = breakdown.reduce((s, b) => s + parseInt(b.count), 0);
+    if (sumCounts !== rawData.total) {
+      console.warn('[MunicipalAnalysisEngine] Satisfaction breakdown total mismatch', { reported: rawData.total, sumCounts });
+    }
 
     return {
       total: rawData.total,
-      averageScore,
+      averageScore: Number(averageScoreNumeric.toFixed(2)),
       maxScore: 5,
       breakdown,
       insights: analysis.insights,
       recommendations: analysis.recommendations,
       analysisQuality: analysis.quality,
-      dissatisfiedCount: this.calculateDissatisfiedCount(breakdown),
-      satisfactionTrend: this.assessSatisfactionTrend(averageScore)
+      ...dissatisfaction,
+      satisfactionTrend: this.assessSatisfactionTrend(averageScoreNumeric),
+      meta: { computationVersion: 'sat_v0.2' }
     };
   }
 
-  generateSatisfactionInsights(rawData, averageScore, breakdown) {
+  // ==================== AGE SATISFACTION ANALYSIS (NEW) ====================
+  async analyzeSatisfactionByAge() {
+    const responses = this.dataAccess.getSurveyResponses();
+    const withAge = responses.filter(r => r.age && r.survey && r.survey.satisfaction);
+    if (withAge.length === 0) {
+      return {
+        totalResponses: 0,
+        brackets: [],
+        insightSummary: 'Sem respostas com idade para calcular satisfação',
+        recommendations: ['Coletar idade dos respondentes para análises demográficas'],
+        analysisQuality: 'insufficient_data',
+        meta: { computationVersion: 'age_sat_v0.1' }
+      };
+    }
+
+    const weights = {
+      'Muito satisfeito': 5,
+      'Satisfeito': 4,
+      'Neutro': 3,
+      'Insatisfeito': 2,
+      'Muito insatisfeito': 1
+    };
+
+    const bracketsDef = [
+      { key: '15-24', min: 15, max: 24 },
+      { key: '25-34', min: 25, max: 34 },
+      { key: '35-44', min: 35, max: 44 },
+      { key: '45-54', min: 45, max: 54 },
+      { key: '55-64', min: 55, max: 64 },
+      { key: '65+',  min: 65, max: 150 }
+    ];
+
+    const buckets = bracketsDef.map(b => ({ ...b, count: 0, totalScore: 0 }));
+
+    withAge.forEach(r => {
+      const ageNum = parseInt(r.age, 10);
+      if (isNaN(ageNum)) return;
+      const bracket = buckets.find(b => ageNum >= b.min && ageNum <= b.max);
+      if (!bracket) return;
+      const score = weights[r.survey.satisfaction] ?? 3;
+      bracket.count++;
+      bracket.totalScore += score;
+    });
+
+    const brackets = buckets
+      .filter(b => b.count > 0)
+      .map(b => ({
+        key: b.key,
+        label: b.key,
+        count: b.count,
+        averageScore: parseFloat((b.totalScore / b.count).toFixed(2))
+      }));
+
+    let insightSummary = 'Distribuição de satisfação consistente entre faixas etárias.';
+    if (brackets.length > 1) {
+      const sorted = [...brackets].sort((a, b) => a.averageScore - b.averageScore);
+      const lowest = sorted[0];
+      const highest = sorted[sorted.length - 1];
+      if (highest.averageScore - lowest.averageScore >= 0.5) {
+        insightSummary = `Diferença relevante: ${highest.label} (${highest.averageScore}) vs ${lowest.label} (${lowest.averageScore}).`;
+      }
+    }
+
+    const recommendations = [];
+    const lowBracket = brackets.find(b => b.averageScore < 3.0);
+    if (lowBracket) {
+      recommendations.push(`Plano de intervenção específico para faixa ${lowBracket.label} com satisfação baixa (<3.0).`);
+    }
+    if (brackets.every(b => b.averageScore >= 3.0)) {
+      recommendations.push('Manter estratégias atuais de satisfação; nenhuma faixa crítica identificada.');
+    }
+
+    return {
+      totalResponses: withAge.length,
+      brackets,
+      insightSummary,
+      recommendations,
+      analysisQuality: withAge.length < 30 ? 'limited' : 'good',
+      meta: { computationVersion: 'age_sat_v0.1' }
+    };
+  }
+
+  generateSatisfactionInsights(rawData, averageScoreNumeric, breakdown) {
     const insights = [];
     const recommendations = [];
     let quality = 'good';
 
-    const avgScore = parseFloat(averageScore);
-    const dissatisfiedPercent = this.calculateDissatisfiedPercent(breakdown);
+    const avgScore = parseFloat(averageScoreNumeric);
+    const { dissatisfiedPercent, dissatisfactionTier } = this.calculateDissatisfactionStats(breakdown);
     
     // Sample size assessment
     if (rawData.total < 30) {
@@ -86,24 +176,24 @@ class MunicipalAnalysisEngine {
     }
 
     // Satisfaction level analysis
-    if (dissatisfiedPercent > 40) {
-      insights.push(`Critical concern: ${dissatisfiedPercent}% of residents express dissatisfaction`);
-      insights.push('High dissatisfaction levels indicate systemic service delivery issues');
-      recommendations.push('Priority action needed: address top issues identified in survey responses');
-      recommendations.push('Consider emergency response plan for community concerns');
+    if (dissatisfactionTier === 'critical') {
+      insights.push(`Critical concern: ${dissatisfiedPercent.toFixed(1)}% of residents express dissatisfaction`);
+      recommendations.push('Priority action: address top issues driving dissatisfaction');
       recommendations.push('Schedule immediate community meetings with affected residents');
-    } else if (avgScore < 3.0) {
-      insights.push(`Below-neutral satisfaction: Average score ${avgScore}/5 indicates room for improvement`);
-      insights.push('Moderate concern requiring strategic intervention');
-      recommendations.push('Analyze specific issues driving neutral/negative responses');
+    } else if (dissatisfactionTier === 'elevated') {
+      insights.push(`Elevated dissatisfaction: ${dissatisfiedPercent.toFixed(1)}% requires targeted intervention`);
+      recommendations.push('Investigate root causes through qualitative follow-ups');
+    }
+
+    if (avgScore < 3.0) {
+      insights.push(`Below-neutral satisfaction: average score ${avgScore.toFixed(2)}/5 indicates structural issues`);
       recommendations.push('Implement targeted satisfaction improvement initiatives');
     } else if (avgScore >= 4.0) {
-      insights.push(`Good satisfaction levels: ${avgScore}/5 average indicates positive citizen sentiment`);
-      insights.push('Strong foundation for community engagement and municipal initiatives');
-      recommendations.push('Maintain current service levels and identify best practices to replicate');
-    } else {
-      insights.push(`Moderate satisfaction: ${avgScore}/5 suggests balanced but improvable citizen perception`);
-      recommendations.push('Focus on converting neutral responses to positive satisfaction');
+      insights.push(`Positive satisfaction: ${avgScore.toFixed(2)}/5 reflects strong citizen sentiment`);
+      recommendations.push('Document best practices sustaining high satisfaction');
+    } else if (avgScore >= 3.0 && dissatisfactionTier === 'low') {
+      insights.push(`Moderate satisfaction: ${avgScore.toFixed(2)}/5 with low dissatisfaction`);
+      recommendations.push('Focus on converting neutral respondents to promoters');
     }
 
     // Distribution analysis
@@ -120,88 +210,104 @@ class MunicipalAnalysisEngine {
   
   async analyzeNeighborhoods() {
     const rawData = this.dataAccess.getNeighborhoodRawData();
-    
-    // Calculate rates for each neighborhood
-    const neighborhoods = Object.entries(rawData).map(([name, stats]) => ({
-      neighborhood: name,
-      total: stats.total,
-      sent: stats.sent,
-      clicked: stats.clicked,
-      answered: stats.answered,
-      responseRate: stats.total > 0 ? ((stats.answered / stats.total) * 100).toFixed(1) : '0',
-      engagementRate: stats.sent > 0 ? ((stats.clicked / stats.sent) * 100).toFixed(1) : '0'
-    })).sort((a, b) => b.total - a.total);
 
-    const analysis = this.generateNeighborhoodInsights(neighborhoods);
+    const neighborhoodsRaw = Object.entries(rawData).map(([name, stats]) => {
+      const responseRate = stats.total > 0 ? (stats.answered / stats.total) * 100 : 0;
+      const engagementRate = stats.sent > 0 ? (stats.clicked / stats.sent) * 100 : 0;
+      return {
+        neighborhood: name,
+        total: stats.total,
+        sent: stats.sent,
+        clicked: stats.clicked,
+        answered: stats.answered,
+        responseRate, // numeric
+        engagementRate // numeric
+      };
+    });
+
+    // Sort copy by response for ranking
+    const byResponse = [...neighborhoodsRaw].sort((a, b) => b.responseRate - a.responseRate);
+    const avgResponse = byResponse.length ? byResponse.reduce((s, n) => s + n.responseRate, 0) / byResponse.length : 0;
+    const attentionCutoff = Math.max(0, avgResponse - 10); // relative threshold
+
+    const analysis = this.generateNeighborhoodInsights(byResponse);
+
+    // Integrity check: ensure no rate > 100
+    byResponse.forEach(n => {
+      if (n.responseRate > 100 || n.engagementRate > 100) {
+        console.warn('[MunicipalAnalysisEngine] Rate exceeded 100%', n);
+      }
+    });
 
     return {
-      neighborhoods,
+      neighborhoods: neighborhoodsRaw
+        .map(n => ({
+          ...n,
+          responseRate: n.responseRate.toFixed(1),
+            engagementRate: n.engagementRate.toFixed(1)
+        }))
+        .sort((a, b) => b.total - a.total),
       insights: analysis.insights,
       recommendations: analysis.recommendations,
       equityAssessment: analysis.equityAssessment,
-      totalNeighborhoods: neighborhoods.length,
-      bestPerforming: neighborhoods.find(n => parseFloat(n.responseRate) === Math.max(...neighborhoods.map(n => parseFloat(n.responseRate)))),
-      needsAttention: neighborhoods.filter(n => parseFloat(n.responseRate) < 60)
+      totalNeighborhoods: neighborhoodsRaw.length,
+      bestPerforming: byResponse[0] ? { neighborhood: byResponse[0].neighborhood, responseRate: byResponse[0].responseRate.toFixed(1) } : null,
+      needsAttention: neighborhoodsRaw
+        .filter(n => n.responseRate < attentionCutoff)
+        .map(n => ({ neighborhood: n.neighborhood, responseRate: n.responseRate.toFixed(1) })),
+      meta: {
+        avgResponseRate: avgResponse.toFixed(1),
+        attentionCutoff: attentionCutoff.toFixed(1),
+        computationVersion: 'neigh_v0.2'
+      }
     };
   }
 
-  generateNeighborhoodInsights(neighborhoods) {
+  generateNeighborhoodInsights(neighborhoodsSortedByResponse) {
     const insights = [];
     const recommendations = [];
     let equityAssessment = 'good';
 
-    if (neighborhoods.length === 0) {
+    if (neighborhoodsSortedByResponse.length === 0) {
       return {
         insights: ['No neighborhood data available'],
         recommendations: ['Ensure neighborhood information is collected during registration'],
         equityAssessment: 'unknown'
       };
     }
-
-    const responseRates = neighborhoods.map(n => parseFloat(n.responseRate));
-    const avgResponseRate = (responseRates.reduce((a, b) => a + b, 0) / responseRates.length).toFixed(1);
-    const lowPerforming = neighborhoods.filter(n => parseFloat(n.responseRate) < 60);
-    const highPerforming = neighborhoods.filter(n => parseFloat(n.responseRate) >= 80);
+    const responseRates = neighborhoodsSortedByResponse.map(n => n.responseRate);
+    const avgResponseRate = responseRates.reduce((a, b) => a + b, 0) / responseRates.length;
+    const lowPerforming = neighborhoodsSortedByResponse.filter(n => n.responseRate < (avgResponseRate - 10));
+    const highPerforming = neighborhoodsSortedByResponse.filter(n => n.responseRate >= 80);
 
     // Overall performance
-    insights.push(`Geographic analysis covers ${neighborhoods.length} neighborhoods with ${avgResponseRate}% average response rate`);
-    
-    // Best performing
+    insights.push(`Geographic coverage: ${neighborhoodsSortedByResponse.length} neighborhoods, average response rate ${avgResponseRate.toFixed(1)}%`);
+
+    // Highest response rate (top of sorted list)
+    const top = neighborhoodsSortedByResponse[0];
+    insights.push(`Highest response rate: ${top.neighborhood} (${top.responseRate.toFixed(1)}%)`);
+
     if (highPerforming.length > 0) {
-      const best = highPerforming[0];
-      insights.push(`Highest engagement: ${best.neighborhood} (${best.total} contacts, ${best.responseRate}% response rate)`);
-      recommendations.push(`Study successful engagement strategies from: ${highPerforming.map(n => n.neighborhood).join(', ')}`);
+      recommendations.push(`Replicate engagement practices from: ${highPerforming.slice(0,3).map(n => n.neighborhood).join(', ')}`);
     }
 
-    // Equity analysis
     if (lowPerforming.length > 0) {
-      const avgLowRate = (lowPerforming.reduce((sum, n) => sum + parseFloat(n.responseRate), 0) / lowPerforming.length).toFixed(1);
-      
-      insights.push(`Areas needing attention: ${lowPerforming.map(n => `${n.neighborhood} (${n.responseRate}%)`).join(', ')}`);
-      insights.push(`Disparidade geográfica: ${lowPerforming.length} bairros com engajamento abaixo de 60%`);
-      
-      if (avgLowRate < 30) {
-        equityAssessment = 'critical';
-        insights.push('Critical equity gap: some neighborhoods virtually disconnected from municipal services');
-        recommendations.push('Urgent intervention needed: consider physical presence and local community leaders');
-        recommendations.push('Investigate structural barriers (language, technology, trust)');
-      } else {
-        equityAssessment = 'needs_attention';
-        recommendations.push(`Targeted outreach strategy for ${lowPerforming.length} low-engagement neighborhoods`);
-      }
+      const list = lowPerforming.slice(0,5).map(n => `${n.neighborhood} (${n.responseRate.toFixed(1)}%)`).join(', ');
+      insights.push(`Areas needing focus (below relative threshold): ${list}`);
+      equityAssessment = lowPerforming.length > responseRates.length * 0.4 ? 'concern' : 'moderate';
+      recommendations.push('Deploy targeted outreach to low-response neighborhoods');
     } else {
       equityAssessment = 'excellent';
-      insights.push('Excellent equity: all neighborhoods show strong engagement levels');
+      insights.push('Broadly consistent engagement across neighborhoods');
     }
 
-    // Participation distribution
-    const totalParticipation = neighborhoods.reduce((sum, n) => sum + n.total, 0);
-    const largestNeighborhood = neighborhoods[0];
-    const participationConcentration = (largestNeighborhood.total / totalParticipation * 100).toFixed(1);
-    
-    if (participationConcentration > 40) {
-      insights.push(`High concentration: ${participationConcentration}% of participation from ${largestNeighborhood.neighborhood}`);
-      recommendations.push('Balance outreach to ensure representative geographic coverage');
+    const totalContacts = neighborhoodsSortedByResponse.reduce((s, n) => s + n.total, 0);
+    if (totalContacts > 0) {
+      const topShare = (top.total / totalContacts) * 100;
+      if (topShare > 40) {
+        insights.push(`Participation concentration risk: ${top.neighborhood} holds ${topShare.toFixed(1)}% of contacts`);
+        recommendations.push('Broaden recruitment to reduce geographic concentration');
+      }
     }
 
     return { insights, recommendations, equityAssessment };
@@ -603,6 +709,23 @@ class MunicipalAnalysisEngine {
     return breakdown
       .filter(b => ['Muito insatisfeito', 'Insatisfeito'].includes(b.level))
       .reduce((sum, b) => sum + parseInt(b.count), 0);
+  }
+
+  // Unified dissatisfaction stats (superset; keeps existing helpers for backward compatibility)
+  calculateDissatisfactionStats(breakdown) {
+    const dissLevels = new Set(['Muito insatisfeito', 'Insatisfeito']);
+    let dissCount = 0;
+    let total = 0;
+    breakdown.forEach(b => {
+      const c = typeof b.count === 'number' ? b.count : parseInt(b.count, 10);
+      total += c;
+      if (dissLevels.has(b.level)) dissCount += c;
+    });
+    const percent = total > 0 ? (dissCount / total) * 100 : 0;
+    let tier = 'low';
+    if (percent >= 40) tier = 'critical';
+    else if (percent >= 25) tier = 'elevated';
+    return { dissatisfiedCount: dissCount, dissatisfiedPercent: percent, dissatisfactionTier: tier };
   }
 
   assessSatisfactionTrend(averageScore) {
