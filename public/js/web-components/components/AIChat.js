@@ -509,6 +509,18 @@ export class AIChat extends EventEmitterMixin(ReactiveComponent) {
   // ========== Rendering ==========
 
   render() {
+    // Check if already rendered - if so, do selective updates only
+    const container = this.$('.chat-container');
+    const badge = this.$('.notification-badge');
+
+    if (container && badge) {
+      // Already rendered - update only reactive properties without destroying DOM
+      container.classList.toggle('open', this.isOpen);
+      badge.classList.toggle('show', this.showNotificationBadge);
+      return;
+    }
+
+    // First render - create full DOM structure
     const template = html`
       <style>${this.styles()}</style>
       <div class="chat-widget">
@@ -521,7 +533,7 @@ export class AIChat extends EventEmitterMixin(ReactiveComponent) {
           <div class="chat-header">
             <div>
               <div class="chat-title">Assistente IA</div>
-              <div class="chat-status">${this.status}</div>
+              <div class="chat-status">Ativo</div>
             </div>
             <button class="chat-close">&times;</button>
           </div>
